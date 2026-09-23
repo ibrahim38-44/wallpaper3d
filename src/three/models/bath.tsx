@@ -1,10 +1,10 @@
 import { mat, shade } from '../materials';
 import { B, Cyl, RB, type ModelProps } from './primitives';
 
-export function Basin({ size, color }: ModelProps) {
+export function Basin({ size, color, color2 = '#fbfbf9' }: ModelProps) {
   const { w, d, h } = size;
   const cab = mat('lacquer', color);
-  const ceramic = mat('ceramic', '#fbfbf9');
+  const ceramic = mat('ceramic', color2);
   const bowl = mat('ceramic', '#eeeeea');
   const chrome = mat('chrome');
   const legH = 14;

@@ -3,7 +3,7 @@ import { getFurniture } from '../catalog/furniture';
 import { FLOOR_MATERIALS } from '../catalog/floors';
 import { computeWalls, floorArea, roomSize } from '../core/geometry';
 import type { FloorItem, OpeningItem } from '../core/types';
-import { useEditor, useSelectedItem } from '../store/editorStore';
+import { useEditor, useRoom, useSelectedItem } from '../store/editorStore';
 import { RangeField, Section, Swatches } from './controls';
 import { FurnitureGlyph, Icon } from './Icons';
 
@@ -25,7 +25,7 @@ function ItemActions({ id, locked, isOpening }: { id: string; locked?: boolean; 
 
 function FloorItemProps({ item }: { item: FloorItem }) {
   const def = getFurniture(item.catalogId)!;
-  const room = useEditor((s) => s.project!.room);
+  const { room } = useRoom();
   const { updateItem, checkpoint } = useEditor.getState();
   const size = (k: 'w' | 'd' | 'h') => (v: number, t: boolean) => updateItem(item.id, { size: { ...item.size, [k]: v } }, t);
   const dims = roomSize(room);
@@ -50,7 +50,7 @@ function FloorItemProps({ item }: { item: FloorItem }) {
 
 function OpeningProps({ item }: { item: OpeningItem }) {
   const def = getFurniture(item.catalogId)!;
-  const room = useEditor((s) => s.project!.room);
+  const { room } = useRoom();
   const walls = useMemo(() => computeWalls(room), [room]);
   const { updateItem, moveOpening, checkpoint } = useEditor.getState();
   const wall = walls[item.wallIndex];
@@ -79,7 +79,7 @@ function OpeningProps({ item }: { item: OpeningItem }) {
 }
 
 function RoomSettings() {
-  const project = useEditor((s) => s.project!);
+  const project = useRoom();
   const snap = useEditor((s) => s.snapToWall);
   const meas = useEditor((s) => s.showMeasurements);
   const { setFloorMaterial, openRoomDialog, toggleSnap, toggleMeasurements, setWallPaint } = useEditor.getState();
@@ -88,7 +88,7 @@ function RoomSettings() {
   const wallArea = walls.reduce((a, w) => a + w.length * project.room.height, 0) / 10000;
   return (
     <>
-      <Section title="Oda" actions={<button className="btn btn--ghost btn--sm" onClick={() => openRoomDialog('edit')}><Icon.Ruler /> Düzenle</button>}>
+      <Section title={`Oda · ${project.room.name}`} actions={<button className="btn btn--ghost btn--sm" onClick={() => openRoomDialog('edit')}><Icon.Ruler /> Düzenle</button>}>
         <dl className="stats">
           <dt>Ölçüler</dt><dd>{dims.width} × {dims.length} cm</dd>
           <dt>Tavan yüksekliği</dt><dd>{project.room.height} cm</dd>
@@ -96,6 +96,7 @@ function RoomSettings() {
           <dt>Brüt duvar alanı</dt><dd>{wallArea.toFixed(2)} m²</dd>
           <dt>Eşya sayısı</dt><dd>{project.items.length}</dd>
         </dl>
+        <button className="btn btn--ghost btn--sm" onClick={() => openRoomDialog('add')}><Icon.Home /> Yanına oda ekle</button>
       </Section>
       <Section title="Zemin">
         <div className="floor-grid">
@@ -138,12 +139,15 @@ export function PropertiesPanel() {
           <button className="icon-btn" onClick={() => select(null)} aria-label="Seçimi kaldır"><Icon.Close /></button>
         </div>
         <ItemActions id={item.id} locked={item.locked} isOpening={item.kind === 'opening'} />
-        {item.kind === 'floor' ? <FloorItemProps item={item} /> : <OpeningProps item={item} />}
-        {def.colors.length > 0 && (
-          <Section title="Renk / malzeme">
-            <Swatches colors={def.colors} value={item.color} onChange={(c) => updateItem(item.id, { color: c })} />
+        <Section title={def.colorSlots?.[0] ? `Renk – ${def.colorSlots[0]}` : 'Renk'}>
+          <Swatches colors={def.colors} value={item.color ?? def.colors[0]} onChange={(c) => updateItem(item.id, { color: c })} label={def.colorSlots?.[0]} />
+        </Section>
+        {def.colorSlots?.[1] && (
+          <Section title={`Renk – ${def.colorSlots[1]}`}>
+            <Swatches colors={def.colors2 ?? []} value={item.color2 ?? def.colors2?.[0]} onChange={(c) => updateItem(item.id, { color2: c })} label={def.colorSlots[1]} />
           </Section>
         )}
+        {item.kind === 'floor' ? <FloorItemProps item={item} /> : <OpeningProps item={item} />}
       </div>
     );
   }

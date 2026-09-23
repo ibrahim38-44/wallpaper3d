@@ -1,11 +1,12 @@
 import type { Size3 } from '../core/types';
 
-export type FurnitureCategory = 'yatak' | 'oturma' | 'yemek-calisma' | 'mutfak' | 'banyo' | 'yapi' | 'dekor';
+export type FurnitureCategory = 'yatak' | 'oturma' | 'sandalye' | 'yemek-calisma' | 'mutfak' | 'banyo' | 'yapi' | 'dekor';
 
 export const CATEGORY_LABELS: Record<FurnitureCategory, string> = {
   yapi: 'Kapı & Pencere',
   yatak: 'Yatak Odası',
   oturma: 'Oturma Odası',
+  sandalye: 'Sandalye & Tabure',
   'yemek-calisma': 'Yemek & Çalışma',
   mutfak: 'Mutfak',
   banyo: 'Banyo',
@@ -38,6 +39,10 @@ export interface FurnitureDef {
   defaultElevation?: number;
   /** Ana malzeme renk seçenekleri; ilki varsayılan */
   colors: string[];
+  /** Renk yuvası adları: [ana, ikincil]. İkincil yoksa tek renk seçilir. */
+  colorSlots?: [string, string?];
+  /** İkincil malzeme (ayak, tezgâh, çerçeve…) renk seçenekleri; ilki varsayılan */
+  colors2?: string[];
   /** AI modeline gönderilen kısa İngilizce tanım (tespit doğruluğu için) */
   aiHint: string;
   keywords?: string[];
@@ -135,10 +140,31 @@ export const FURNITURE: FurnitureDef[] = [
     defaultSize: S(130, 65, 75), minSize: S(70, 45, 65), maxSize: S(220, 90, 80),
     colors: ['#a07c5a', '#f2efe9', '#2e2e2e'], aiHint: 'desk', keywords: ['masa'],
   },
+  // ---- Sandalye & tabure
   {
-    id: 'chair', name: 'Sandalye', category: 'yemek-calisma', placement: 'floor', model: 'chair',
+    id: 'chair', name: 'Ahşap sandalye', category: 'sandalye', placement: 'floor', model: 'chair',
     defaultSize: S(46, 52, 85), minSize: S(38, 40, 70), maxSize: S(65, 65, 110),
-    colors: ['#a07c5a', '#2e2e2e', '#e9e5de', '#6b7b5e'], aiHint: 'chair',
+    colors: ['#a07c5a', '#2e2e2e', '#e9e5de', '#6b7b5e', '#6f4e37'], aiHint: 'wooden dining chair', keywords: ['sandalye', 'yemek'],
+  },
+  {
+    id: 'chair-upholstered', name: 'Döşemeli sandalye', category: 'sandalye', placement: 'floor', model: 'chairUph',
+    defaultSize: S(48, 56, 90), minSize: S(40, 45, 75), maxSize: S(65, 70, 110),
+    colors: ['#b7a58c', '#8c8f94', '#3f4a5a', '#6b7b5e', '#a55d4a', '#e3ddd3'], aiHint: 'upholstered dining chair', keywords: ['sandalye', 'yemek'],
+  },
+  {
+    id: 'office-chair', name: 'Ofis sandalyesi', category: 'sandalye', placement: 'floor', model: 'officeChair',
+    defaultSize: S(62, 62, 105), minSize: S(50, 50, 85), maxSize: S(75, 75, 130),
+    colors: ['#2b2b2b', '#4a5561', '#8c8f94', '#e3ddd3'], aiHint: 'office swivel chair', keywords: ['sandalye', 'koltuk', 'çalışma'],
+  },
+  {
+    id: 'bar-stool', name: 'Bar taburesi', category: 'sandalye', placement: 'floor', model: 'barStool',
+    defaultSize: S(42, 42, 95), minSize: S(32, 32, 55), maxSize: S(55, 55, 115),
+    colors: ['#a07c5a', '#2e2e2e', '#b7a58c', '#6b7b5e'], aiHint: 'bar stool', keywords: ['tabure', 'sandalye', 'mutfak'],
+  },
+  {
+    id: 'stool', name: 'Puf / tabure', category: 'sandalye', placement: 'floor', model: 'pouf',
+    defaultSize: S(45, 45, 42), minSize: S(30, 30, 30), maxSize: S(80, 80, 50),
+    colors: ['#b7a58c', '#3f4a5a', '#a55d4a', '#6b7b5e', '#e3ddd3'], aiHint: 'ottoman / pouf', keywords: ['puf', 'tabure'],
   },
   // ---- Mutfak
   {
@@ -199,6 +225,47 @@ export const FURNITURE: FurnitureDef[] = [
     colors: ['#efe6d6', '#2e2e2e'], aiHint: 'floor lamp',
   },
 ];
+
+/** İkincil renk yuvaları: [yuva adları, ikincil renk seçenekleri]. */
+const WOOD2 = ['#6b4a33', '#a07c5a', '#2e2e2e', '#c9b08c', '#e9e5de', '#8a8f94'];
+const METAL2 = ['#2a2a2a', '#b9b6b0', '#c9a45c', '#e9e5de', '#6b4a33'];
+const SECONDARY: Record<string, [[string, string], string[]]> = {
+  'bed-double': [['Kumaş / başlık', 'Nevresim'], ['#ebe5da', '#ffffff', '#d9cfc0', '#b9c4c9', '#c9b3a7', '#8c8f94', '#3f4a5a']],
+  'bed-single': [['Kumaş / başlık', 'Nevresim'], ['#ebe5da', '#ffffff', '#d9cfc0', '#b9c4c9', '#c9b3a7', '#8c8f94']],
+  wardrobe: [['Kapaklar', 'Kulp'], ['#b8b2a7', '#2a2a2a', '#c9a45c', '#e9e5de']],
+  nightstand: [['Gövde', 'Ayak'], METAL2],
+  dresser: [['Gövde', 'Ayak'], WOOD2],
+  sofa: [['Kumaş', 'Ayak'], METAL2],
+  'sofa-l': [['Kumaş', 'Ayak'], METAL2],
+  armchair: [['Kumaş', 'Ayak'], WOOD2],
+  'coffee-table': [['Tabla', 'Ayak'], METAL2],
+  'tv-unit': [['Gövde', 'Kapaklar'], ['#f2efe9', '#2e2e2e', '#a07c5a', '#58606b', '#7d8b74']],
+  bookshelf: [['Gövde', 'Arka panel'], ['#e9e5de', '#a07c5a', '#2e2e2e', '#58606b', '#b9c4c9']],
+  'dining-table': [['Tabla', 'Ayak'], WOOD2],
+  desk: [['Tabla', 'Gövde'], ['#f2efe9', '#2e2e2e', '#a07c5a', '#58606b']],
+  chair: [['Gövde', 'Oturak'], ['#a07c5a', '#2e2e2e', '#b7a58c', '#8c8f94', '#6b7b5e']],
+  'chair-upholstered': [['Kumaş', 'Ayak'], WOOD2],
+  'office-chair': [['Kumaş', 'Ayak / kol'], ['#2a2a2a', '#b9b6b0', '#e9e5de']],
+  'bar-stool': [['Oturak', 'Ayak'], METAL2],
+  stool: [['Kumaş', 'Ayak'], WOOD2],
+  'kitchen-base': [['Kapaklar', 'Tezgâh'], ['#e4e1db', '#2b2b2b', '#b9b3a8', '#8a6a4a', '#f5f5f3', '#5b5f63']],
+  'kitchen-sink': [['Kapaklar', 'Tezgâh'], ['#e4e1db', '#2b2b2b', '#b9b3a8', '#8a6a4a', '#f5f5f3', '#5b5f63']],
+  'kitchen-wall': [['Kapaklar', 'Kulp'], ['#b9b6b0', '#2a2a2a', '#c9a45c']],
+  basin: [['Dolap', 'Lavabo'], ['#fbfbf9', '#e9e5de', '#2b2b2b']],
+  rug: [['Zemin', 'Kenar'], ['#8a7a66', '#3f4a5a', '#e3ddd3', '#a55d4a', '#2e2e2e']],
+  plant: [['Saksı', 'Yapraklar'], ['#4f7a45', '#6b8f4e', '#2f5a3a', '#8aa35f']],
+  'floor-lamp': [['Abajur', 'Gövde'], METAL2],
+  door: [['Kapı kanadı', 'Kasa / pervaz'], ['#f4f1ec', '#8a6a4a', '#3b3b3b', '#c9b08c']],
+  window: [['Doğrama', 'Denizlik'], ['#ebe8e2', '#ffffff', '#3b3b3b', '#8a6a4a']],
+  'balcony-door': [['Doğrama', 'Eşik'], ['#9a9a9a', '#3b3b3b', '#ffffff']],
+};
+for (const f of FURNITURE) {
+  const sec = SECONDARY[f.id];
+  if (sec) {
+    f.colorSlots = sec[0];
+    f.colors2 = sec[1];
+  }
+}
 
 const byId = new Map(FURNITURE.map((f) => [f.id, f]));
 

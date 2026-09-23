@@ -3,12 +3,12 @@ import { mulberry32 } from '../../catalog/patterns';
 import { mat, shade } from '../materials';
 import { B, Cyl, type ModelProps } from './primitives';
 
-export function Rug({ size, color }: ModelProps) {
+export function Rug({ size, color, color2 }: ModelProps) {
   const { w, d, h } = size;
   const border = Math.min(14, w * 0.07, d * 0.07);
   return (
     <group>
-      <mesh position={[0, h / 2, 0]} material={mat('fabric', shade(color, -0.14))} receiveShadow>
+      <mesh position={[0, h / 2, 0]} material={mat('fabric', color2 ?? shade(color, -0.14))} receiveShadow>
         <boxGeometry args={[w, h, d]} />
       </mesh>
       <mesh position={[0, h / 2 + 0.05, 0]} material={mat('fabric', color)} receiveShadow>
@@ -21,7 +21,7 @@ export function Rug({ size, color }: ModelProps) {
   );
 }
 
-export function Plant({ size, color }: ModelProps) {
+export function Plant({ size, color, color2 }: ModelProps) {
   const { w, d, h } = size;
   const r = Math.min(w, d) * 0.3;
   const potH = Math.min(h * 0.32, 45);
@@ -40,10 +40,10 @@ export function Plant({ size, color }: ModelProps) {
         stemH: foliageH * t,
         len,
         tilt: 0.5 + rnd() * 0.5,
-        c: rnd() > 0.5 ? '#4f7a45' : '#3e6538',
+        c: color2 ? (rnd() > 0.5 ? color2 : shade(color2, -0.08)) : rnd() > 0.5 ? '#4f7a45' : '#3e6538',
       };
     });
-  }, [w, d, h, potH]);
+  }, [w, d, h, potH, color2]);
   const stem = mat('matte', '#5d6b3b');
   return (
     <group>
@@ -61,9 +61,9 @@ export function Plant({ size, color }: ModelProps) {
   );
 }
 
-export function FloorLamp({ size, color }: ModelProps) {
+export function FloorLamp({ size, color, color2 = '#2a2a2a' }: ModelProps) {
   const { w, h } = size;
-  const metal = mat('metal', '#2a2a2a');
+  const metal = mat('metal', color2);
   const shadeH = Math.min(32, h * 0.2);
   return (
     <group>

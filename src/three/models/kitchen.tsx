@@ -5,8 +5,8 @@ const PLINTH = 10;
 const TOP_T = 4;
 const COUNTER = '#e4e1db';
 
-function Handle({ x, y, z, len, vertical = false }: { x: number; y: number; z: number; len: number; vertical?: boolean }) {
-  return <B p={[x, y, z]} s={vertical ? [1.2, len, 1.6] : [len, 1.2, 1.6]} m={mat('metal', '#b9b6b0')} />;
+function Handle({ x, y, z, len, vertical = false, color = '#b9b6b0' }: { x: number; y: number; z: number; len: number; vertical?: boolean; color?: string }) {
+  return <B p={[x, y, z]} s={vertical ? [1.2, len, 1.6] : [len, 1.2, 1.6]} m={mat('metal', color)} />;
 }
 
 /** Alt dolap gövdesi + kapaklar (üstte çekmece sırası) */
@@ -46,19 +46,19 @@ function BaseCabinets({ w, d, h, color, hollow = 0 }: { w: number; d: number; h:
   );
 }
 
-export function KitchenBase({ size, color }: ModelProps) {
+export function KitchenBase({ size, color, color2 = COUNTER }: ModelProps) {
   const { w, d, h } = size;
   return (
     <group>
       <BaseCabinets w={w} d={d} h={h} color={color} />
-      <B p={[0, h - TOP_T / 2, 0.5]} s={[w, TOP_T, d + 1]} m={mat('stone', COUNTER)} />
+      <B p={[0, h - TOP_T / 2, 0.5]} s={[w, TOP_T, d + 1]} m={mat('stone', color2)} />
     </group>
   );
 }
 
-export function KitchenSink({ size, color }: ModelProps) {
+export function KitchenSink({ size, color, color2 = COUNTER }: ModelProps) {
   const { w, d, h } = size;
-  const top = mat('stone', COUNTER);
+  const top = mat('stone', color2);
   const steel = mat('metal', '#c9ccce');
   const chrome = mat('chrome');
   const bw = Math.min(78, w - 16);
@@ -91,7 +91,7 @@ export function KitchenSink({ size, color }: ModelProps) {
   );
 }
 
-export function KitchenWall({ size, color }: ModelProps) {
+export function KitchenWall({ size, color, color2 }: ModelProps) {
   const { w, d, h } = size;
   const carcass = mat('matte', shade(color, -0.05));
   const front = mat('lacquer', color);
@@ -105,7 +105,7 @@ export function KitchenWall({ size, color }: ModelProps) {
         return (
           <group key={i}>
             <B p={[x, h / 2, d / 2 - 1]} s={[fw - 0.4, h - 0.4, 1.8]} m={front} />
-            <Handle x={x} y={5} z={d / 2 + 0.8} len={Math.min(30, fw * 0.5)} />
+            <Handle x={x} y={5} z={d / 2 + 0.8} len={Math.min(30, fw * 0.5)} color={color2} />
           </group>
         );
       })}

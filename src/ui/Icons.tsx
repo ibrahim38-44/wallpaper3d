@@ -37,6 +37,7 @@ export const Icon = {
   Flip: (p: P) => <Svg {...p}><path d="M12 3v18" /><path d="m8 7-4 5 4 5V7zM16 7l4 5-4 5V7z" /></Svg>,
   Search: (p: P) => <Svg {...p}><circle cx="11" cy="11" r="6" /><path d="m20 20-4.5-4.5" /></Svg>,
   Check: (p: P) => <Svg {...p}><path d="m5 12 5 5 9-10" /></Svg>,
+  Home: (p: P) => <Svg {...p}><path d="M3 11 12 4l9 7" /><path d="M5 10v10h14V10" /><path d="M10 20v-6h4v6" /></Svg>,
   Focus: (p: P) => <Svg {...p}><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" /><circle cx="12" cy="12" r="2.5" /></Svg>,
 };
 
@@ -57,6 +58,10 @@ export function FurnitureGlyph({ model, size = 34 }: { model: string; size?: num
     table: <><rect x="3" y="6" width="18" height="12" rx="1.5" /><circle cx="7" cy="4" r="1" /><circle cx="17" cy="4" r="1" /><circle cx="7" cy="20" r="1" /><circle cx="17" cy="20" r="1" /></>,
     desk: <><rect x="3" y="7" width="18" height="10" rx="1" /><rect x="14" y="7" width="7" height="10" /><circle cx="12" cy="20" r="1.5" /></>,
     chair: <><rect x="6" y="7" width="12" height="11" rx="1.5" /><path d="M6 7h12V5H6z" /></>,
+    chairUph: <><rect x="6" y="8" width="12" height="11" rx="3" /><path d="M7 8c0-2 2-3 5-3s5 1 5 3" /></>,
+    officeChair: <><circle cx="12" cy="13" r="7" /><rect x="8" y="9" width="8" height="8" rx="2" /><path d="M7 7h10" /></>,
+    barStool: <><circle cx="12" cy="12" r="6" /><circle cx="12" cy="12" r="3.5" /></>,
+    pouf: <><circle cx="12" cy="12" r="7" /><circle cx="12" cy="12" r="5.5" strokeDasharray="1.5 1.5" /></>,
     kitchenBase: <><rect x="3" y="8" width="18" height="8" /><path d="M9 8v8M15 8v8M3 10h18" /></>,
     kitchenSink: <><rect x="3" y="7" width="18" height="10" /><rect x="7" y="9" width="10" height="6" rx="1.5" /><circle cx="12" cy="8" r=".8" /></>,
     kitchenWall: <><rect x="3" y="5" width="18" height="9" /><path d="M9 5v9M15 5v9M6 12h1M12 12h1M18 12h1" /></>,

@@ -7,6 +7,7 @@ import { computeWalls, DEG, distancesToWalls, footprintHalfExtents, rayToWall, s
 import type { FloorItem, OpeningItem } from '../core/types';
 import { useEditor } from '../store/editorStore';
 import { FurnitureModel, OpeningModel } from './models/registry';
+import { activateRoom, useRoomCtx } from './roomContext';
 import { useCaptureState } from './sceneBridge';
 
 const SELECT_COLOR = '#2f6fd6';
@@ -36,6 +37,7 @@ function SelectionBox({ w, h, d, y = 0 }: { w: number; h: number; d: number; y?:
 
 /** Zemin üzerindeki döndürme halkası + tutamak */
 function RotateHandle({ item }: { item: FloorItem }) {
+  const { doc } = useRoomCtx();
   const rotateTo = useEditor((s) => s.updateItem);
   const checkpoint = useEditor((s) => s.checkpoint);
   const lock = useControlsLock();
@@ -55,7 +57,7 @@ function RotateHandle({ item }: { item: FloorItem }) {
     if (!dragging.current) return;
     e.stopPropagation();
     if (!e.ray.intersectPlane(floorPlane, tmp)) return;
-    const deg = Math.atan2(tmp.x - item.position.x, tmp.z - item.position.z) / DEG;
+    const deg = Math.atan2(tmp.x - doc.origin.x - item.position.x, tmp.z - doc.origin.z - item.position.z) / DEG;
     rotateTo(item.id, { rotation: snapAngle(deg, 5, 4) }, true);
   };
   const onUp = (e: ThreeEvent<PointerEvent>) => {
@@ -87,7 +89,7 @@ function RotateHandle({ item }: { item: FloorItem }) {
 
 /** Seçili nesneden duvarlara ölçü çizgileri (en yakın iki duvar). */
 function WallDistances({ item }: { item: FloorItem }) {
-  const room = useEditor((s) => s.project!.room);
+  const { room } = useRoomCtx().doc;
   const walls = useMemo(() => computeWalls(room), [room]);
   const lines = useMemo(() => {
     const { hx, hz } = footprintHalfExtents(item.size, item.rotation);
@@ -121,6 +123,7 @@ function WallDistances({ item }: { item: FloorItem }) {
 
 export const FloorItem3D = memo(function FloorItem3D({ item, selected }: { item: FloorItem; selected: boolean }) {
   const def = getFurniture(item.catalogId);
+  const { doc, isActive } = useRoomCtx();
   const select = useEditor((s) => s.select);
   const move = useEditor((s) => s.moveFloorItem);
   const checkpoint = useEditor((s) => s.checkpoint);
@@ -134,11 +137,14 @@ export const FloorItem3D = memo(function FloorItem3D({ item, selected }: { item:
   const onDown = (e: ThreeEvent<PointerEvent>) => {
     if (e.button !== 0 && e.pointerType === 'mouse') return;
     e.stopPropagation();
+    if (!isActive) activateRoom(doc.id);
     select({ type: 'item', id: item.id });
     if (item.locked) return;
     if (!e.ray.intersectPlane(floorPlane, tmp)) return;
     (e.target as Element).setPointerCapture(e.pointerId);
-    drag.current = { dx: tmp.x - item.position.x, dz: tmp.z - item.position.z, moved: false, pointerId: e.pointerId };
+    const lx = tmp.x - doc.origin.x;
+    const lz = tmp.z - doc.origin.z;
+    drag.current = { dx: lx - item.position.x, dz: lz - item.position.z, moved: false, pointerId: e.pointerId };
     lock(true);
   };
   const onMove = (e: ThreeEvent<PointerEvent>) => {
@@ -150,7 +156,7 @@ export const FloorItem3D = memo(function FloorItem3D({ item, selected }: { item:
       checkpoint(); // ilk harekette geri alma noktası
       d.moved = true;
     }
-    move(item.id, { x: tmp.x - d.dx, z: tmp.z - d.dz }, true);
+    move(item.id, { x: tmp.x - doc.origin.x - d.dx, z: tmp.z - doc.origin.z - d.dz }, true);
   };
   const onUp = (e: ThreeEvent<PointerEvent>) => {
     if (!drag.current) return;
@@ -177,7 +183,7 @@ export const FloorItem3D = memo(function FloorItem3D({ item, selected }: { item:
         }}
         onPointerOut={() => !drag.current && (document.body.style.cursor = '')}
       >
-        <FurnitureModel def={def} size={item.size} color={item.color ?? def.colors[0]} />
+        <FurnitureModel def={def} size={item.size} color={item.color ?? def.colors[0]} color2={item.color2 ?? def.colors2?.[0]} />
         {showHelpers && <SelectionBox w={item.size.w} h={item.size.h} d={item.size.d} />}
         {showHelpers && showMeasurements && (
           <Html position={[0, item.size.h + 14, 0]} center zIndexRange={[20, 0]} style={{ pointerEvents: 'none' }}>
@@ -195,7 +201,8 @@ export const FloorItem3D = memo(function FloorItem3D({ item, selected }: { item:
 
 export function OpeningItem3D({ item, wallThickness, hiddenRef }: { item: OpeningItem; wallThickness: number; hiddenRef: MutableRefObject<boolean> }) {
   const def = getFurniture(item.catalogId);
-  const selected = useEditor((s) => s.selection?.type === 'item' && s.selection.id === item.id);
+  const { doc, isActive } = useRoomCtx();
+  const selected = useEditor((s) => isActive && s.selection?.type === 'item' && s.selection.id === item.id);
   const select = useEditor((s) => s.select);
   const moveOpening = useEditor((s) => s.moveOpening);
   const checkpoint = useEditor((s) => s.checkpoint);
@@ -206,14 +213,15 @@ export function OpeningItem3D({ item, wallThickness, hiddenRef }: { item: Openin
   if (!def) return null;
 
   const hitWall = (e: ThreeEvent<PointerEvent>) => {
-    const p = useEditor.getState().project!;
-    return rayToWall(e.ray.origin, e.ray.direction, computeWalls(p.room), p.room.height);
+    const o = e.ray.origin;
+    return rayToWall({ x: o.x - doc.origin.x, y: o.y, z: o.z - doc.origin.z }, e.ray.direction, computeWalls(doc.room), doc.room.height);
   };
 
   const onDown = (e: ThreeEvent<PointerEvent>) => {
     if (hiddenRef.current) return;
     if (e.button !== 0 && e.pointerType === 'mouse') return;
     e.stopPropagation();
+    if (!isActive) activateRoom(doc.id);
     select({ type: 'item', id: item.id });
     if (item.locked) return;
     const hit = hitWall(e);
@@ -260,7 +268,7 @@ export function OpeningItem3D({ item, wallThickness, hiddenRef }: { item: Openin
       }}
       onPointerOut={() => !drag.current && (document.body.style.cursor = '')}
     >
-      <OpeningModel def={def} size={item.size} color={item.color ?? def.colors[0]} wallThickness={wallThickness} flip={item.flip} />
+      <OpeningModel def={def} size={item.size} color={item.color ?? def.colors[0]} color2={item.color2 ?? def.colors2?.[0]} wallThickness={wallThickness} flip={item.flip} />
       {/* açıklığın tamamını tıklanabilir yapan görünmez yüzey */}
       <mesh position={[0, h / 2, -wallThickness / 2]} material={hitMaterial}>
         <boxGeometry args={[w, h, wallThickness + 4]} />

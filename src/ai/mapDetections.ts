@@ -55,6 +55,7 @@ export function detectionsToItems(dets: DetectedItem[], room: RoomSpec, facingWa
         elevation: d.elevationCm ?? def.defaultElevation ?? 0,
         size: { ...size, d: def.defaultSize.d },
         color: def.colors[0],
+        color2: def.colors2?.[0],
       };
       out.push({ ...base, ...clampOpening(base, wall, room.height) });
       continue;
@@ -73,6 +74,7 @@ export function detectionsToItems(dets: DetectedItem[], room: RoomSpec, facingWa
       rotation,
       size,
       color: def.colors[0],
+      color2: def.colors2?.[0],
     };
     let pos = clampToRoom(item.position, item.size, item.rotation, room);
     if (d.wall) pos = snapToWalls(pos, item.size, item.rotation, walls, 60).position;

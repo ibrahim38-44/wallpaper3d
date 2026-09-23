@@ -1,4 +1,5 @@
 import { useEffect, type ComponentType } from 'react';
+import { activeRoom } from './core/project';
 import { useCatalog } from './store/catalogStore';
 import { useEditor, useSelectedItem, type SidePanel } from './store/editorStore';
 import { loadSavedProject, startAutosave } from './store/persistence';
@@ -8,6 +9,9 @@ import { Icon } from './ui/Icons';
 import { LibraryPanel } from './ui/LibraryPanel';
 import { PropertiesPanel } from './ui/PropertiesPanel';
 import { RoomDialog } from './ui/RoomDialog';
+import { RoomsPanel } from './ui/RoomsPanel';
+import { CatalogManager } from './ui/CatalogManager';
+import { useLibrary } from './store/libraryStore';
 import { Toast } from './ui/Toast';
 import { TopBar } from './ui/TopBar';
 import { WallpaperPanel } from './ui/WallpaperPanel';
@@ -17,6 +21,7 @@ type Tab = SidePanel;
 const LEFT_TABS: { id: Tab; label: string; icon: ComponentType<{ size?: number }> }[] = [
   { id: 'library', label: 'Eşyalar', icon: Icon.Sofa },
   { id: 'wallpaper', label: 'Duvar kağıdı', icon: Icon.Paint },
+  { id: 'rooms', label: 'Odalar', icon: Icon.Home },
   { id: 'ai', label: 'AI analiz', icon: Icon.Sparkle },
 ];
 
@@ -42,7 +47,7 @@ function useKeyboardShortcuts() {
       const sel = s.selection;
       if (e.key === 'Escape') s.select(null);
       if (sel?.type !== 'item') return;
-      const item = s.project.items.find((i) => i.id === sel.id);
+      const item = activeRoom(s.project).items.find((i) => i.id === sel.id);
       if (!item) return;
       if (e.key === 'Delete' || e.key === 'Backspace') {
         e.preventDefault();
@@ -95,6 +100,8 @@ function PanelContent({ tab }: { tab: Tab }) {
       return <WallpaperPanel />;
     case 'ai':
       return <AIPanel />;
+    case 'rooms':
+      return <RoomsPanel />;
     default:
       return <PropertiesPanel />;
   }
@@ -110,6 +117,7 @@ export default function App() {
 
   useEffect(() => {
     void useCatalog.getState().load();
+    void useLibrary.getState().load();
     const saved = loadSavedProject();
     if (saved) loadProject(saved);
     else openRoomDialog('new');
@@ -133,7 +141,8 @@ export default function App() {
             <nav className="tabs" role="tablist">
               {LEFT_TABS.map((t) => (
                 <button key={t.id} role="tab" aria-selected={leftTab === t.id} className={leftTab === t.id ? 'is-active' : ''} onClick={() => setPanel(t.id)}>
-                  <t.icon size={16} /> {t.label}
+                  <t.icon size={18} />
+                  <span>{t.label}</span>
                 </button>
               ))}
             </nav>
@@ -146,7 +155,7 @@ export default function App() {
           <Scene />
           {hasProject && (
             <div className="stage__hint" aria-hidden="true">
-              Sürükle: taşı · Halka: döndür · Duvara dokun: duvar kağıdı · Boşluğa tıkla: seçimi kaldır
+              Sürükle: taşı · Halka: döndür · Duvara dokun: duvar kağıdı · Başka odaya dokun: o odayı düzenle
             </div>
           )}
           {hasProject && <QuickBar />}
@@ -188,6 +197,7 @@ export default function App() {
       )}
 
       {roomDialog && <RoomDialog key={roomDialog} mode={roomDialog} />}
+      <CatalogManager />
       <Toast />
     </div>
   );

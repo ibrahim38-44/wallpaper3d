@@ -61,7 +61,10 @@ export interface FloorItem {
   /** derece, Y ekseni etrafında; 0 = ön yüz +z'ye bakar */
   rotation: number;
   size: Size3;
+  /** ana malzeme rengi (kumaş, gövde, kapak…) */
   color?: string;
+  /** ikincil malzeme rengi (ayak, tezgâh, çerçeve…) – katalogda colorSlots tanımlıysa */
+  color2?: string;
   locked?: boolean;
 }
 
@@ -81,6 +84,7 @@ export interface OpeningItem {
   /** kapı açılış yönünü ters çevir */
   flip?: boolean;
   color?: string;
+  color2?: string;
   locked?: boolean;
 }
 
@@ -107,6 +111,9 @@ export interface WallpaperDef {
   name: string;
   collection: string;
   sku?: string;
+  /** Firma/marka adı (firma kataloğundan içe aktarılan ürünlerde) */
+  brand?: string;
+  brandId?: string;
   /** Tek desen karosunun gerçek ölçüsü (cm) – dokunun tekrar ettiği birim. */
   tileWidthCm: number;
   tileHeightCm: number;
@@ -128,15 +135,27 @@ export interface FloorFinish {
   materialId: string;
 }
 
-export interface Project {
-  schemaVersion: 1;
+/** Evdeki tek bir oda: kendi ölçüleri, eşyaları, duvar kaplamaları ve zemini vardır. */
+export interface RoomDoc {
   id: string;
-  name: string;
+  /** Oda köşesinin (yerel 0,0) ev planındaki konumu (cm) */
+  origin: Vec2;
   room: RoomSpec;
+  /** oda-yerel koordinatlarda */
   items: SceneItem[];
   /** duvar indeksine göre */
   walls: WallFinish[];
   floor: FloorFinish;
+}
+
+export interface Project {
+  schemaVersion: 2;
+  id: string;
+  name: string;
+  /** Evin odaları; her biri ayrı düzenlenir */
+  rooms: RoomDoc[];
+  /** Düzenlenen (aktif) oda */
+  activeRoomId: string;
   /** kullanıcının yüklediği desenler (proje ile birlikte taşınır) */
   customWallpapers: WallpaperDef[];
   createdAt: string;

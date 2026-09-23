@@ -58,8 +58,19 @@ export function RangeField({
   );
 }
 
+/** Genel renk paleti (ahşap, kumaş, metal ve boya tonları) */
+export const FULL_PALETTE = [
+  '#ffffff', '#f4f1ec', '#e9e5de', '#e3ddd3', '#d8c6aa', '#c9b08c', '#b7a58c', '#a07c5a', '#8a6a4a', '#6f4e37', '#5a3e2b', '#3b2c21',
+  '#f5f5f5', '#d9d9d9', '#b9b6b0', '#8c8f94', '#6d7580', '#58606b', '#4a4f5a', '#3b3b3b', '#2b2b2b', '#1a1a1a',
+  '#c9d3cf', '#9fb09a', '#7d8b74', '#6b7b5e', '#3d5a45', '#2f4a3a', '#d6dde6', '#b9c4c9', '#7d98b3', '#3f4a5a', '#2f3b4a', '#27384a',
+  '#e9d8cf', '#e0b8a8', '#d19a8a', '#c97b5f', '#a55d4a', '#8a3b30', '#f0d9a0', '#d8b56d', '#c9a45c', '#b07a2c', '#e8c4c4', '#9e7ba8',
+];
+
 export function Swatches({ colors, value, onChange, label }: { colors: string[]; value?: string; onChange: (c: string) => void; label?: string }) {
+  const [more, setMore] = useState(false);
+  const extra = FULL_PALETTE.filter((c) => !colors.includes(c));
   return (
+    <div className="swatch-wrap">
     <div className="swatches" role="radiogroup" aria-label={label ?? 'Renk'}>
       {colors.map((c) => (
         <button
@@ -73,10 +84,22 @@ export function Swatches({ colors, value, onChange, label }: { colors: string[];
           title={c}
         />
       ))}
-      <label className="swatch swatch--custom" title="Özel renk">
+      <label className="swatch swatch--custom" title="Özel renk seç">
         <input type="color" value={value ?? '#ffffff'} onChange={(e) => onChange(e.target.value)} />
         <span>+</span>
       </label>
+      <button type="button" className="swatch-more" onClick={() => setMore(!more)} aria-expanded={more}>
+        {more ? 'Daha az' : 'Tüm renkler'}
+      </button>
+    </div>
+    {more && (
+      <div className="swatches swatches--full" role="radiogroup" aria-label={`${label ?? 'Renk'} – tüm renkler`}>
+        {extra.map((c) => (
+          <button key={c} type="button" role="radio" aria-checked={value === c} className={`swatch swatch--sm ${value === c ? 'is-active' : ''}`} style={{ background: c }} onClick={() => onChange(c)} title={c} />
+        ))}
+      </div>
+    )}
+    {value && <span className="swatch-hex">{value.toUpperCase()}</span>}
     </div>
   );
 }

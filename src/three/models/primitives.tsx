@@ -6,7 +6,10 @@ export type V3 = [number, number, number];
 
 export interface ModelProps {
   size: Size3;
+  /** ana malzeme rengi */
   color: string;
+  /** ikincil malzeme rengi (ayak, tezgâh, çerçeve…); yoksa modelin varsayılanı */
+  color2?: string;
 }
 
 export interface OpeningModelProps extends ModelProps {

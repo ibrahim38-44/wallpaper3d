@@ -4,14 +4,17 @@ import { Suspense, useEffect, useRef, type ComponentRef, type DragEvent } from '
 import * as THREE from 'three';
 import { getFurniture } from '../catalog/furniture';
 import { computeWalls, rayToFloor, rayToWall, roomBounds } from '../core/geometry';
+import { houseBounds } from '../core/house';
+import { activeRoom } from '../core/project';
 import { useEditor } from '../store/editorStore';
 import { Room3D } from './Room3D';
 import { sceneBridge, useCaptureState } from './sceneBridge';
 import { setMaxAnisotropy } from './textures';
 
 function Lights() {
-  const room = useEditor((s) => s.project!.room);
-  const b = roomBounds(room);
+  const rooms = useEditor((s) => s.project!.rooms);
+  const room = { height: Math.max(...rooms.map((r) => r.room.height)) };
+  const b = houseBounds(rooms);
   const cx = (b.minX + b.maxX) / 2;
   const cz = (b.minZ + b.maxZ) / 2;
   const span = Math.max(b.maxX - b.minX, b.maxZ - b.minZ);
@@ -45,8 +48,21 @@ function Lights() {
         shadow-bias={-0.0004}
         shadow-normalBias={1.5}
       />
-      {/* tavan ışığı hissi: oda içinde yumuşak dolgu */}
-      <pointLight position={[cx, room.height - 20, cz]} intensity={span * span * 0.18} distance={span * 3} decay={2} color="#fff1dc" />
+      {/* tavan ışığı hissi: her odada yumuşak dolgu */}
+      {rooms.map((r) => {
+        const rb = roomBounds(r.room);
+        const rs = Math.max(rb.maxX - rb.minX, rb.maxZ - rb.minZ);
+        return (
+          <pointLight
+            key={r.id}
+            position={[r.origin.x + (rb.minX + rb.maxX) / 2, r.room.height - 20, r.origin.z + (rb.minZ + rb.maxZ) / 2]}
+            intensity={rs * rs * 0.18}
+            distance={rs * 3}
+            decay={2}
+            color="#fff1dc"
+          />
+        );
+      })}
     </>
   );
 }
@@ -63,25 +79,41 @@ function CameraRig() {
     const c = controlsRef.current;
     const { project, selection } = useEditor.getState();
     if (!c || !project) return;
-    const room = project.room;
-    const b = roomBounds(room);
-    const cx = (b.minX + b.maxX) / 2;
-    const cz = (b.minZ + b.maxZ) / 2;
-    const W = b.maxX - b.minX;
-    const L = b.maxZ - b.minZ;
-    const span = Math.max(W, L);
-    const H = room.height;
+    const doc = activeRoom(project);
+    const room = doc.room;
     const persp = camera as THREE.PerspectiveCamera;
     const vfov = (persp.fov * Math.PI) / 180;
     const hfov = 2 * Math.atan(Math.tan(vfov / 2) * persp.aspect);
-    if (view === 'top') {
-      const dist = Math.max(W / 2 / Math.tan(hfov / 2), L / 2 / Math.tan(vfov / 2)) * 1.15 + H;
-      void c.setLookAt(cx, dist, cz + 0.01, cx, 0, cz, true);
-    } else if (view === 'wall') {
+    const H = room.height;
+    if (view === 'top' || view === 'house') {
+      const b = houseBounds(project.rooms);
+      const cx = (b.minX + b.maxX) / 2;
+      const cz = (b.minZ + b.maxZ) / 2;
+      const W = b.maxX - b.minX;
+      const L = b.maxZ - b.minZ;
+      if (view === 'top') {
+        const dist = Math.max(W / 2 / Math.tan(hfov / 2), L / 2 / Math.tan(vfov / 2)) * 1.12 + H;
+        void c.setLookAt(cx, dist, cz + 0.01, cx, 0, cz, true);
+      } else {
+        const span = Math.max(W, L);
+        const dist = span * 1.2 + 200;
+        void c.setLookAt(cx + W * 0.25, H + span * 0.7, cz + L / 2 + dist * 0.7, cx, H * 0.2, cz, true);
+      }
+      return;
+    }
+    const b = roomBounds(room);
+    const ox = doc.origin.x;
+    const oz = doc.origin.z;
+    const cx = ox + (b.minX + b.maxX) / 2;
+    const cz = oz + (b.minZ + b.maxZ) / 2;
+    const W = b.maxX - b.minX;
+    const L = b.maxZ - b.minZ;
+    const span = Math.max(W, L);
+    if (view === 'wall') {
       const walls = computeWalls(room);
       const w = walls[selection?.type === 'wall' ? selection.index : 0];
-      const mx = w.start.x + w.dir.x * (w.length / 2);
-      const mz = w.start.z + w.dir.z * (w.length / 2);
+      const mx = ox + w.start.x + w.dir.x * (w.length / 2);
+      const mz = oz + w.start.z + w.dir.z * (w.length / 2);
       const dist = Math.max(w.length / 2 / Math.tan(hfov / 2), H / 2 / Math.tan(vfov / 2)) * 1.08;
       void c.setLookAt(mx + w.normal.x * dist, H * 0.5, mz + w.normal.z * dist, mx, H * 0.48, mz, true);
     } else {
@@ -106,15 +138,26 @@ function CameraRig() {
       return raycaster.ray;
     };
     sceneBridge.current = {
-      screenToFloor(x, y) {
+      screenToWorldFloor(x, y) {
         const r = toRay(x, y);
         return rayToFloor(r.origin, r.direction, 0);
+      },
+      screenToFloor(x, y) {
+        // aktif odanın yerel koordinatında döner
+        const p = useEditor.getState().project;
+        if (!p) return null;
+        const o = activeRoom(p).origin;
+        const r = toRay(x, y);
+        const hit = rayToFloor(r.origin, r.direction, 0);
+        return hit ? { x: hit.x - o.x, z: hit.z - o.z } : null;
       },
       screenToWall(x, y) {
         const p = useEditor.getState().project;
         if (!p) return null;
+        const doc = activeRoom(p);
         const r = toRay(x, y);
-        const hit = rayToWall(r.origin, r.direction, computeWalls(p.room), p.room.height);
+        const origin = { x: r.origin.x - doc.origin.x, y: r.origin.y, z: r.origin.z - doc.origin.z };
+        const hit = rayToWall(origin, r.direction, computeWalls(doc.room), doc.room.height);
         return hit ? { wallIndex: hit.wallIndex, offset: hit.u } : null;
       },
       async capture() {
@@ -157,7 +200,18 @@ export function Scene() {
     e.preventDefault();
     const def = getFurniture(id);
     if (!def) return;
-    const { addItem } = useEditor.getState();
+    const { addItem, setActiveRoom, project } = useEditor.getState();
+    // Bırakılan noktadaki odayı aktif yap
+    const world = sceneBridge.current.screenToWorldFloor(e.clientX, e.clientY);
+    if (world && project) {
+      const target = project.rooms.find((r) => {
+        const b = roomBounds(r.room);
+        const x = world.x - r.origin.x;
+        const z = world.z - r.origin.z;
+        return x >= b.minX && x <= b.maxX && z >= b.minZ && z <= b.maxZ;
+      });
+      if (target) setActiveRoom(target.id);
+    }
     if (def.placement === 'opening') {
       const hit = sceneBridge.current.screenToWall(e.clientX, e.clientY);
       addItem(id, hit ?? undefined);

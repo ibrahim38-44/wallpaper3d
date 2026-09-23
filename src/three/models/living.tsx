@@ -50,8 +50,8 @@ function BackCushions({ from, to, fixed, axis, h, target, m, facing }: { from: n
   );
 }
 
-function SofaLegs({ pts }: { pts: [number, number][] }) {
-  const leg = mat('metal', '#2a2a2a');
+function SofaLegs({ pts, color = '#2a2a2a' }: { pts: [number, number][]; color?: string }) {
+  const leg = mat('metal', color);
   return (
     <>
       {pts.map(([x, z], i) => (
@@ -61,14 +61,14 @@ function SofaLegs({ pts }: { pts: [number, number][] }) {
   );
 }
 
-export function Sofa({ size, color }: ModelProps) {
+export function Sofa({ size, color, color2 }: ModelProps) {
   const { w, d, h } = size;
   const up = mat('fabric', color);
   const cush = mat('fabric', shade(color, 0.03));
   const innerW = w - ARM_W * 2;
   return (
     <group>
-      <SofaLegs pts={legPositions(w, d, 6)} />
+      <SofaLegs pts={legPositions(w, d, 6)} color={color2} />
       <RB p={[0, LEG_H + SEAT_BASE / 2, 0]} s={[w, SEAT_BASE, d]} m={up} radius={2} />
       <RB p={[0, LEG_H + (h - LEG_H) / 2, -d / 2 + BACK_T / 2]} s={[w, h - LEG_H, BACK_T]} m={up} radius={4} />
       {[-1, 1].map((sgn) => (
@@ -81,7 +81,7 @@ export function Sofa({ size, color }: ModelProps) {
 }
 
 /** L koltuk: arka kenar boyunca ana gövde + sol kenar boyunca kanat (köşe takımı). */
-export function SofaL({ size, color }: ModelProps) {
+export function SofaL({ size, color, color2 }: ModelProps) {
   const { w, d, h } = size;
   const up = mat('fabric', color);
   const cush = mat('fabric', shade(color, 0.03));
@@ -96,7 +96,7 @@ export function SofaL({ size, color }: ModelProps) {
   const armY = LEG_H + (ARM_H - LEG_H) / 2;
   return (
     <group>
-      <SofaLegs pts={legs} />
+      <SofaLegs pts={legs} color={color2} />
       <RB p={[0, baseY, z0 + sd / 2]} s={[w, SEAT_BASE, sd]} m={up} radius={2} />
       <RB p={[x0 + sd / 2, baseY, (z0 + sd + d / 2) / 2]} s={[sd, SEAT_BASE, d - sd]} m={up} radius={2} />
       <RB p={[0, backY, z0 + BACK_T / 2]} s={[w, h - LEG_H, BACK_T]} m={up} radius={4} />
@@ -113,11 +113,11 @@ export function SofaL({ size, color }: ModelProps) {
   );
 }
 
-export function Armchair({ size, color }: ModelProps) {
+export function Armchair({ size, color, color2 = '#6b4a33' }: ModelProps) {
   const { w, d, h } = size;
   const up = mat('fabric', color);
   const cush = mat('fabric', shade(color, 0.03));
-  const leg = mat('wood', '#6b4a33');
+  const leg = mat('wood', color2);
   const armW = Math.min(14, w * 0.18);
   const legH = 14;
   const innerW = w - armW * 2;
@@ -136,10 +136,10 @@ export function Armchair({ size, color }: ModelProps) {
   );
 }
 
-export function CoffeeTable({ size, color }: ModelProps) {
+export function CoffeeTable({ size, color, color2 = '#262626' }: ModelProps) {
   const { w, d, h } = size;
   const top = mat('wood', color);
-  const metal = mat('metal', '#262626');
+  const metal = mat('metal', color2);
   return (
     <group>
       <RB p={[0, h - 2, 0]} s={[w, 4, d]} m={top} radius={1.2} />
@@ -151,10 +151,10 @@ export function CoffeeTable({ size, color }: ModelProps) {
   );
 }
 
-export function TvUnit({ size, color }: ModelProps) {
+export function TvUnit({ size, color, color2 }: ModelProps) {
   const { w, d, h } = size;
   const body = mat('wood', color);
-  const front = mat('lacquer', shade(color, 0.02));
+  const front = mat('lacquer', color2 ?? shade(color, 0.02));
   const inner = mat('matte', shade(color, -0.35));
   const leg = mat('metal', '#262626');
   const legH = 8;
@@ -242,7 +242,7 @@ function Books({ w, d, shelfYs, gapH, seed }: { w: number; d: number; shelfYs: n
   );
 }
 
-export function Bookshelf({ size, color }: ModelProps) {
+export function Bookshelf({ size, color, color2 }: ModelProps) {
   const { w, d, h } = size;
   const m = mat('wood', color);
   const t = 2;
@@ -253,7 +253,7 @@ export function Bookshelf({ size, color }: ModelProps) {
     <group>
       <B p={[-w / 2 + t / 2, h / 2, 0]} s={[t, h, d]} m={m} />
       <B p={[w / 2 - t / 2, h / 2, 0]} s={[t, h, d]} m={m} />
-      <B p={[0, h / 2, -d / 2 + 0.5]} s={[w - 2 * t, h, 1]} m={mat('wood', shade(color, -0.08))} />
+      <B p={[0, h / 2, -d / 2 + 0.5]} s={[w - 2 * t, h, 1]} m={mat('wood', color2 ?? shade(color, -0.08))} />
       {[...shelfYs, h].map((y, i) => (
         <B key={i} p={[0, y - t / 2, 0]} s={[w - 2 * t, t, d]} m={m} />
       ))}
@@ -262,10 +262,10 @@ export function Bookshelf({ size, color }: ModelProps) {
   );
 }
 
-export function Table({ size, color }: ModelProps) {
+export function Table({ size, color, color2 }: ModelProps) {
   const { w, d, h } = size;
   const m = mat('wood', color);
-  const legM = mat('wood', shade(color, -0.06));
+  const legM = mat('wood', color2 ?? shade(color, -0.06));
   return (
     <group>
       <RB p={[0, h - 2, 0]} s={[w, 4, d]} m={m} radius={1} />
@@ -277,10 +277,10 @@ export function Table({ size, color }: ModelProps) {
   );
 }
 
-export function Desk({ size, color }: ModelProps) {
+export function Desk({ size, color, color2 }: ModelProps) {
   const { w, d, h } = size;
   const m = mat('wood', color);
-  const side = mat('wood', shade(color, -0.05));
+  const side = mat('wood', color2 ?? shade(color, -0.05));
   const knob = mat('metal', '#a89f90');
   const pedW = Math.min(42, w * 0.35);
   const pedX = w / 2 - pedW / 2 - 1;
@@ -305,9 +305,10 @@ export function Desk({ size, color }: ModelProps) {
   );
 }
 
-export function Chair({ size, color }: ModelProps) {
+export function Chair({ size, color, color2 }: ModelProps) {
   const { w, d, h } = size;
   const m = mat('wood', color);
+  const seat = mat('wood', color2 ?? color);
   const seatH = 45;
   const legTop = seatH - 3;
   const pts = legPositions(w, d, 3);
@@ -316,7 +317,7 @@ export function Chair({ size, color }: ModelProps) {
       {pts.map(([x, z], i) => (
         <Cyl key={i} p={[x, legTop / 2, z]} rt={1.6} rb={1.2} h={legTop} m={m} seg={10} />
       ))}
-      <RB p={[0, seatH - 2, 0]} s={[w, 4, d]} m={m} radius={1.5} />
+      <RB p={[0, seatH - 2, 0]} s={[w, 4, d]} m={seat} radius={1.5} />
       {[-1, 1].map((s) => (
         <Cyl key={s} p={[s * (w / 2 - 3), seatH + (h - seatH) / 2, -d / 2 + 3]} rt={1.4} h={h - seatH} m={m} seg={10} r={[-0.08, 0, 0]} />
       ))}

@@ -1,10 +1,14 @@
 import { useFrame, type ThreeEvent } from '@react-three/fiber';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
+import type { ForeignHole } from '../core/house';
 import type { OpeningItem, WallFinish, WallInfo, WallpaperDef } from '../core/types';
 import { useEditor } from '../store/editorStore';
 import { OpeningItem3D } from './Item3D';
+import { activateRoom, useRoomCtx } from './roomContext';
 import { useWallpaperTexture } from './useWallpaperTexture';
+
+type Hole = Pick<OpeningItem, 'offset' | 'elevation' | 'size'>;
 
 const BASEBOARD_H = 8;
 const FLOOR_OPENING_EPS = 1;
@@ -16,6 +20,8 @@ interface Props {
   finish: WallFinish;
   wallpaper?: WallpaperDef;
   openings: OpeningItem[];
+  /** komşu odanın sırt sırta duvarındaki kapı/pencere delikleri */
+  foreignHoles: ForeignHole[];
   selected: boolean;
 }
 
@@ -24,7 +30,7 @@ interface Props {
  * Zemine oturan açıklıklar (kapı) dış konturda çentik olarak, diğerleri delik olarak eklenir;
  * böylece üçgenleme (earcut) kenara değen deliklerde bozulmaz.
  */
-export function buildWallShape(length: number, height: number, openings: OpeningItem[]): THREE.Shape {
+export function buildWallShape(length: number, height: number, openings: Hole[]): THREE.Shape {
   const shape = new THREE.Shape();
   const clampU = (u: number) => Math.max(1, Math.min(length - 1, u));
   const floorOps = openings
@@ -65,7 +71,7 @@ export function buildWallShape(length: number, height: number, openings: Opening
 }
 
 /** Süpürgelik parçaları: kapı açıklıkları hariç. */
-function baseboardSegments(length: number, openings: OpeningItem[]): [number, number][] {
+function baseboardSegments(length: number, openings: Hole[]): [number, number][] {
   const cuts = openings
     .filter((o) => o.elevation < BASEBOARD_H)
     .map((o) => [o.offset - o.size.w / 2 - 7, o.offset + o.size.w / 2 + 7] as [number, number])
@@ -87,7 +93,8 @@ const bodyMaterials = [
 const baseboardMat = new THREE.MeshStandardMaterial({ color: '#f7f6f3', roughness: 0.4 });
 const outlineMat = new THREE.MeshStandardMaterial({ color: '#8f8a82', roughness: 1 });
 
-export function Wall3D({ wall, height, thickness, finish, wallpaper, openings, selected }: Props) {
+export function Wall3D({ wall, height, thickness, finish, wallpaper, openings, foreignHoles, selected }: Props) {
+  const { doc, isActive } = useRoomCtx();
   const groupRef = useRef<THREE.Group>(null);
   const hiddenRef = useRef(false);
   const [hovered, setHovered] = useState(false);
@@ -95,9 +102,10 @@ export function Wall3D({ wall, height, thickness, finish, wallpaper, openings, s
   const setPanel = useEditor((s) => s.setPanel);
 
   // Yalnızca açıklık geometrisi değiştiğinde duvarı yeniden üret (mobilya sürüklerken değil)
-  const sig = openings.map((o) => `${o.offset.toFixed(1)},${o.elevation},${o.size.w},${o.size.h}`).join('|');
+  const holes: Hole[] = [...openings, ...foreignHoles];
+  const sig = holes.map((o) => `${o.offset.toFixed(1)},${o.elevation},${o.size.w},${o.size.h}`).join('|');
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  const shape = useMemo(() => buildWallShape(wall.length, height, openings), [wall.length, height, sig]);
+  const shape = useMemo(() => buildWallShape(wall.length, height, holes), [wall.length, height, sig]);
   const surfaceGeo = useMemo(() => new THREE.ShapeGeometry(shape, 1), [shape]);
   const bodyGeo = useMemo(() => new THREE.ExtrudeGeometry(shape, { depth: thickness, bevelEnabled: false }), [shape, thickness]);
   useEffect(() => () => surfaceGeo.dispose(), [surfaceGeo]);
@@ -121,7 +129,9 @@ export function Wall3D({ wall, height, thickness, finish, wallpaper, openings, s
   useFrame(({ camera }) => {
     const g = groupRef.current;
     if (!g) return;
-    const s = (camera.position.x - wall.start.x) * wall.normal.x + (camera.position.z - wall.start.z) * wall.normal.z;
+    const cx = camera.position.x - doc.origin.x;
+    const cz = camera.position.z - doc.origin.z;
+    const s = (cx - wall.start.x) * wall.normal.x + (cz - wall.start.z) * wall.normal.z;
     const hide = s < -2;
     if (hide !== hiddenRef.current) {
       hiddenRef.current = hide;
@@ -133,12 +143,13 @@ export function Wall3D({ wall, height, thickness, finish, wallpaper, openings, s
   const onClick = (e: ThreeEvent<MouseEvent>) => {
     if (hiddenRef.current || e.delta > 5) return;
     e.stopPropagation();
+    if (!isActive) activateRoom(doc.id);
     select({ type: 'wall', index: wall.index });
     setPanel('wallpaper', window.matchMedia('(max-width: 900px)').matches);
   };
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  const segments = useMemo(() => baseboardSegments(wall.length, openings), [wall.length, sig]);
+  const segments = useMemo(() => baseboardSegments(wall.length, holes), [wall.length, sig]);
 
   return (
     <group position={[wall.start.x, 0, wall.start.z]} rotation={[0, wall.rotationY, 0]}>

@@ -7,12 +7,16 @@ import type { Vec2 } from '../core/types';
  * ekran görüntüsü) bunları çağırır. Böylece UI, three.js'e doğrudan bağımlı olmaz.
  */
 export interface SceneBridge {
+  /** ev planı (dünya) koordinatında zemin noktası */
+  screenToWorldFloor(clientX: number, clientY: number): Vec2 | null;
+  /** aktif odanın yerel koordinatında zemin noktası */
   screenToFloor(clientX: number, clientY: number): Vec2 | null;
   screenToWall(clientX: number, clientY: number): { wallIndex: number; offset: number } | null;
   capture(): Promise<string>;
 }
 
 const noop: SceneBridge = {
+  screenToWorldFloor: () => null,
   screenToFloor: () => null,
   screenToWall: () => null,
   capture: async () => '',

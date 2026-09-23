@@ -5,7 +5,8 @@ import { AnalysisError, catalogForAnalysis, HttpAnalysisProvider } from '../ai/p
 import type { AnalysisImage, AnalysisResult } from '../ai/types';
 import { getFurniture } from '../catalog/furniture';
 import { computeWalls, roomSize } from '../core/geometry';
-import { useEditor } from '../store/editorStore';
+import { activeRoom } from '../core/project';
+import { useEditor, useRoom } from '../store/editorStore';
 import { Section } from './controls';
 import { FurnitureGlyph, Icon } from './Icons';
 
@@ -14,7 +15,7 @@ const provider = new HttpAnalysisProvider();
 const REL_LABEL = { back: 'arka duvar', right: 'sağ duvar', front: 'ön duvar', left: 'sol duvar' } as const;
 
 export function AIPanel() {
-  const project = useEditor((s) => s.project!);
+  const project = useRoom();
   const { addItems, resizeRoom, notify } = useEditor.getState();
   const [images, setImages] = useState<AnalysisImage[]>([]);
   const [busy, setBusy] = useState<string | null>(null);
@@ -83,7 +84,7 @@ export function AIPanel() {
 
   const apply = () => {
     if (!result) return;
-    const room = useEditor.getState().project!.room;
+    const room = activeRoom(useEditor.getState().project!).room;
     const selected = result.items.filter((_, i) => checked.has(i));
     const items = detectionsToItems(selected, room, facing);
     addItems(items, replace ? { replaceFurniture: true, replaceOpenings: items.some((n) => n.kind === 'opening') } : undefined);

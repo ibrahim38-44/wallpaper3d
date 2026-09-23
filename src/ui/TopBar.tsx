@@ -2,6 +2,7 @@ import { useRef, useState, type ReactNode } from 'react';
 import { useEditor, type ViewMode } from '../store/editorStore';
 import { downloadDataUrl, downloadProject, readProjectFile, slug } from '../store/persistence';
 import { sceneBridge } from '../three/sceneBridge';
+import { useLibrary } from '../store/libraryStore';
 import { Segmented } from './controls';
 import { Icon } from './Icons';
 
@@ -32,7 +33,9 @@ export function TopBar() {
   };
 
   const views: { value: ViewMode; label: ReactNode; title: string }[] = [
-    { value: 'perspective', label: <><Icon.Cube /> <span className="hide-sm">3D</span></>, title: '3D perspektif' },
+    // Oda · Ev · Üstten · Duvar
+    { value: 'perspective', label: <><Icon.Cube /> <span className="hide-sm">Oda</span></>, title: 'Düzenlenen odaya 3D bakış' },
+    { value: 'house', label: <><Icon.Home /> <span className="hide-sm">Ev</span></>, title: 'Tüm evi 3D göster' },
     { value: 'top', label: <><Icon.Top /> <span className="hide-sm">Üstten</span></>, title: 'Üstten plan görünümü' },
     { value: 'wall', label: <><Icon.Wall /> <span className="hide-sm">Duvar</span></>, title: 'Seçili duvara karşıdan bak' },
   ];
@@ -42,7 +45,12 @@ export function TopBar() {
       <div className="brand">
         <span className="brand__mark" aria-hidden="true" />
         <span className="brand__name">Wallpaper3D</span>
-        {project && <span className="brand__project" title={project.name}>{project.name}</span>}
+        {project && (
+          <span className="brand__project" title={project.name}>
+            {project.name}
+            {project.rooms.length > 1 && <em> · {project.rooms.find((r) => r.id === project.activeRoomId)?.room.name}</em>}
+          </span>
+        )}
       </div>
       {project && (
         <div className="topbar__center">
@@ -63,9 +71,11 @@ export function TopBar() {
           <button className="icon-btn" onClick={() => setMenu((m) => !m)} aria-haspopup="menu" aria-expanded={menu} aria-label="Menü"><Icon.Menu /></button>
           {menu && (
             <div className="menu" role="menu" onClick={() => setMenu(false)}>
-              <button role="menuitem" onClick={() => openRoomDialog('new')}><Icon.Plus /> Yeni oda</button>
+              <button role="menuitem" onClick={() => openRoomDialog('new')}><Icon.Plus /> Yeni proje</button>
+              {project && <button role="menuitem" onClick={() => openRoomDialog('add')}><Icon.Home /> Yanına oda ekle</button>}
               {project && <button role="menuitem" onClick={() => openRoomDialog('edit')}><Icon.Ruler /> Oda ölçülerini düzenle</button>}
-              {project && <button role="menuitem" onClick={() => downloadProject(project)}><Icon.Download /> Projeyi kaydet (.json)</button>}
+              <button role="menuitem" onClick={() => useLibrary.getState().setManagerOpen(true)}><Icon.Paint /> Firma katalogları</button>
+              {project && <button role="menuitem" onClick={() => void downloadProject(project)}><Icon.Download /> Projeyi kaydet (.json)</button>}
               <button role="menuitem" onClick={() => fileRef.current?.click()}><Icon.Folder /> Proje aç…</button>
             </div>
           )}

@@ -29,11 +29,12 @@ function Backdrop({ w, h, T }: { w: number; h: number; T: number }) {
   );
 }
 
-export function Door({ size, color, wallThickness: T, flip }: OpeningModelProps) {
+export function Door({ size, color, color2, wallThickness: T, flip }: OpeningModelProps) {
   const { w, h } = size;
   const leaf = mat('lacquer', color);
   const panel = mat('lacquer', shade(color, -0.04));
-  const jamb = mat('lacquer', color);
+  const frame = color2 ?? color;
+  const jamb = mat('lacquer', frame);
   const chrome = mat('chrome');
   const lw = w - 4;
   const lh = h - 2;
@@ -41,7 +42,7 @@ export function Door({ size, color, wallThickness: T, flip }: OpeningModelProps)
   const zc = -T / 2;
   return (
     <group>
-      <Casing w={w} h={h} color={color} />
+      <Casing w={w} h={h} color={frame} />
       <B p={[-w / 2 + 1, h / 2, zc]} s={[2, h, T + 1]} m={jamb} />
       <B p={[w / 2 - 1, h / 2, zc]} s={[2, h, T + 1]} m={jamb} />
       <B p={[0, h - 1, zc]} s={[w, 2, T + 1]} m={jamb} />
@@ -72,7 +73,7 @@ function Sash({ x, w, h, y0, z, frame }: { x: number; w: number; h: number; y0: 
   );
 }
 
-export function Window({ size, color, wallThickness: T }: OpeningModelProps) {
+export function Window({ size, color, color2 = '#ebe8e2', wallThickness: T }: OpeningModelProps) {
   const { w, h } = size;
   const frame = mat('lacquer', color);
   const n = w > 90 ? 2 : 1;
@@ -89,12 +90,12 @@ export function Window({ size, color, wallThickness: T }: OpeningModelProps) {
         <Sash key={i} x={-w / 2 + 4 + sw * i + sw / 2} w={sw} h={h - 8} y0={4} z={zc + 1} frame={color} />
       ))}
       {/* iç denizlik (mermer) */}
-      <B p={[0, -1.2, (zc + 6) / 2]} s={[w + 10, 2.4, T / 2 + 6]} m={mat('stone', '#ebe8e2')} />
+      <B p={[0, -1.2, (zc + 6) / 2]} s={[w + 10, 2.4, T / 2 + 6]} m={mat('stone', color2)} />
     </group>
   );
 }
 
-export function BalconyDoor({ size, color, wallThickness: T }: OpeningModelProps) {
+export function BalconyDoor({ size, color, color2 = '#9a9a9a', wallThickness: T }: OpeningModelProps) {
   const { w, h } = size;
   const frame = mat('lacquer', color);
   const n = w > 110 ? 2 : 1;
@@ -107,7 +108,7 @@ export function BalconyDoor({ size, color, wallThickness: T }: OpeningModelProps
       <B p={[-w / 2 + 2, h / 2, zc]} s={[4, h, 7]} m={frame} />
       <B p={[w / 2 - 2, h / 2, zc]} s={[4, h, 7]} m={frame} />
       <B p={[0, h - 2, zc]} s={[w, 4, 7]} m={frame} />
-      <B p={[0, 1, zc]} s={[w, 2, T]} m={mat('metal', '#9a9a9a')} />
+      <B p={[0, 1, zc]} s={[w, 2, T]} m={mat('metal', color2)} />
       {Array.from({ length: n }, (_, i) => (
         <Sash key={i} x={-w / 2 + 4 + sw * i + sw / 2} w={sw} h={h - 6} y0={2} z={zc + 1} frame={color} />
       ))}

@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { detectionsToItems, relToRoom, relWallToIndex } from '../src/ai/mapDetections';
 import { sanitizeResult } from '../src/ai/provider';
 import { FURNITURE } from '../src/catalog/furniture';
-import { createRoom, parseProject, serializeProject } from '../src/core/project';
+import { activeRoom, createRoom, parseProject, serializeProject } from '../src/core/project';
 import type { FloorItem, OpeningItem } from '../src/core/types';
 import { useEditor } from '../src/store/editorStore';
 
@@ -48,6 +48,8 @@ describe('AI eşleme', () => {
   });
 });
 
+const cur = () => activeRoom(useEditor.getState().project!);
+
 describe('editör deposu', () => {
   beforeEach(() => {
     useEditor.getState().newProject({ width: 400, length: 500, height: 260 });
@@ -56,17 +58,17 @@ describe('editör deposu', () => {
   it('eşya ekler, taşır, geri alır ve yineler', () => {
     const s = useEditor.getState();
     const id = s.addItem('sofa')!;
-    expect(useEditor.getState().project!.items).toHaveLength(1);
+    expect(cur().items).toHaveLength(1);
     useEditor.getState().moveFloorItem(id, { x: 150, z: 250 });
-    const moved = useEditor.getState().project!.items[0] as FloorItem;
+    const moved = cur().items[0] as FloorItem;
     expect(moved.position.x).toBe(150);
     useEditor.getState().undo();
-    expect((useEditor.getState().project!.items[0] as FloorItem).position.x).toBe(200);
+    expect((cur().items[0] as FloorItem).position.x).toBe(200);
     useEditor.getState().undo();
-    expect(useEditor.getState().project!.items).toHaveLength(0);
+    expect(cur().items).toHaveLength(0);
     useEditor.getState().redo();
     useEditor.getState().redo();
-    expect((useEditor.getState().project!.items[0] as FloorItem).position.x).toBe(150);
+    expect((cur().items[0] as FloorItem).position.x).toBe(150);
   });
 
   it('geçici güncellemeler geçmişe yazılmaz', () => {
@@ -80,24 +82,24 @@ describe('editör deposu', () => {
   it('boyutu katalog sınırlarında tutar', () => {
     const id = useEditor.getState().addItem('wardrobe')!;
     useEditor.getState().updateItem(id, { size: { w: 9999, d: 1, h: 220 } });
-    const it = useEditor.getState().project!.items[0] as FloorItem;
+    const it = cur().items[0] as FloorItem;
     expect(it.size.w).toBe(400);
     expect(it.size.d).toBe(40);
   });
 
   it('duvar kağıdı uygular ve kaldırır', () => {
     useEditor.getState().setWallpaper(1, { wallpaperId: 'wp-damask-navy', offsetU: 0, offsetV: 0 });
-    expect(useEditor.getState().project!.walls[1].wallpaper?.wallpaperId).toBe('wp-damask-navy');
+    expect(cur().walls[1].wallpaper?.wallpaperId).toBe('wp-damask-navy');
     useEditor.getState().setWallpaper('all', { wallpaperId: 'wp-linen', offsetU: 0, offsetV: 0 });
-    expect(useEditor.getState().project!.walls.every((w) => w.wallpaper?.wallpaperId === 'wp-linen')).toBe(true);
+    expect(cur().walls.every((w) => w.wallpaper?.wallpaperId === 'wp-linen')).toBe(true);
     useEditor.getState().setWallpaper(1, null);
-    expect(useEditor.getState().project!.walls[1].wallpaper).toBeNull();
+    expect(cur().walls[1].wallpaper).toBeNull();
   });
 
   it('kapıyı duvar üzerinde kaydırır ve duvar değiştirir', () => {
     const id = useEditor.getState().addItem('door', { wallIndex: 0, offset: 100 })!;
     useEditor.getState().moveOpening(id, 3, 5000);
-    const d = useEditor.getState().project!.items[0] as OpeningItem;
+    const d = cur().items[0] as OpeningItem;
     expect(d.wallIndex).toBe(3);
     expect(d.offset).toBe(500 - 45 - 5);
   });
@@ -106,7 +108,55 @@ describe('editör deposu', () => {
     useEditor.getState().addItem('bed-double');
     const p = useEditor.getState().project!;
     const back = parseProject(JSON.parse(serializeProject(p)));
-    expect(back.items).toEqual(p.items);
-    expect(back.room).toEqual(p.room);
+    expect(back.rooms).toEqual(p.rooms);
+    expect(back.activeRoomId).toBe(p.activeRoomId);
+  });
+});
+
+describe('çok odalı ev', () => {
+  beforeEach(() => {
+    useEditor.getState().newProject({ name: 'Salon', width: 400, length: 500, height: 260 });
+  });
+
+  it('yanına oda ekler ve ortak duvarı paylaştırır', () => {
+    useEditor.getState().addRoom({ name: 'Mutfak', width: 300, length: 350, height: 260 }, 'right');
+    const p = useEditor.getState().project!;
+    expect(p.rooms).toHaveLength(2);
+    const k = p.rooms[1];
+    expect(k.origin).toEqual({ x: 412, z: 0 });
+    expect(p.activeRoomId).toBe(k.id);
+    // eşya yeni odaya eklenir, eski oda etkilenmez
+    useEditor.getState().addItem('fridge');
+    expect(p.rooms[0].items).toHaveLength(0);
+    expect(activeRoom(useEditor.getState().project!).items).toHaveLength(1);
+  });
+
+  it('aktif oda değiştirilebilir, oda silinebilir', () => {
+    const first = useEditor.getState().project!.rooms[0].id;
+    useEditor.getState().addRoom({ width: 300, length: 300, height: 260 }, 'back');
+    useEditor.getState().setActiveRoom(first);
+    expect(useEditor.getState().project!.activeRoomId).toBe(first);
+    const second = useEditor.getState().project!.rooms[1].id;
+    useEditor.getState().removeRoom(second);
+    expect(useEditor.getState().project!.rooms).toHaveLength(1);
+    useEditor.getState().removeRoom(first); // son oda silinmez
+    expect(useEditor.getState().project!.rooms).toHaveLength(1);
+  });
+
+  it('v1 (tek oda) proje dosyasını taşır', () => {
+    const v1 = { schemaVersion: 1, name: 'Eski', room: createRoom({ width: 300, length: 300, height: 250 }), items: [], walls: [], floor: { materialId: 'grey-tile' } };
+    const p = parseProject(v1);
+    expect(p.schemaVersion).toBe(2);
+    expect(p.rooms).toHaveLength(1);
+    expect(p.rooms[0].walls).toHaveLength(4);
+    expect(p.rooms[0].floor.materialId).toBe('grey-tile');
+  });
+
+  it('eşya ikincil rengini katalogdan alır', () => {
+    useEditor.getState().addItem('sofa');
+    const it = cur().items[0] as FloorItem;
+    expect(it.color2).toBeTruthy();
+    useEditor.getState().updateItem(it.id, { color2: '#123456' });
+    expect((cur().items[0] as FloorItem).color2).toBe('#123456');
   });
 });

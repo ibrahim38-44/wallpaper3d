@@ -3,7 +3,7 @@ import { CATEGORY_LABELS, FURNITURE, type FurnitureCategory } from '../catalog/f
 import { useEditor } from '../store/editorStore';
 import { FurnitureGlyph, Icon } from './Icons';
 
-const ORDER: FurnitureCategory[] = ['yapi', 'yatak', 'oturma', 'yemek-calisma', 'mutfak', 'banyo', 'dekor'];
+const ORDER: FurnitureCategory[] = ['yapi', 'yatak', 'oturma', 'sandalye', 'yemek-calisma', 'mutfak', 'banyo', 'dekor'];
 
 export function LibraryPanel() {
   const addItem = useEditor((s) => s.addItem);
@@ -33,7 +33,7 @@ export function LibraryPanel() {
         <Icon.Search />
         <input placeholder="Eşya ara (yatak, dolap…)" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Eşya ara" />
       </div>
-      <div className="chips chips--scroll">
+      <div className="chips">
         <button className={`chip ${cat === 'all' ? 'is-active' : ''}`} onClick={() => setCat('all')}>Tümü</button>
         {ORDER.map((c) => (
           <button key={c} className={`chip ${cat === c ? 'is-active' : ''}`} onClick={() => setCat(c)}>{CATEGORY_LABELS[c]}</button>

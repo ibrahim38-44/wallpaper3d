@@ -1,7 +1,9 @@
+import { useMemo } from 'react';
 import { create } from 'zustand';
 import { createCatalogProvider } from '../catalog/wallpapers';
 import type { WallpaperDef } from '../core/types';
 import { useEditor } from './editorStore';
+import { useLibrary } from './libraryStore';
 
 interface CatalogState {
   wallpapers: WallpaperDef[];
@@ -10,6 +12,7 @@ interface CatalogState {
   load(): Promise<void>;
 }
 
+/** Yerleşik (demo) veya uzak (VITE_WALLPAPER_CATALOG_URL) katalog. */
 export const useCatalog = create<CatalogState>()((set, get) => ({
   wallpapers: [],
   status: 'idle',
@@ -25,11 +28,26 @@ export const useCatalog = create<CatalogState>()((set, get) => ({
   },
 }));
 
-/** Katalog + projeye özel yüklenen desenler. */
+/**
+ * Kullanılabilir tüm desenler: projeye özel yüklenenler + firma katalogları
+ * (+ ayar açıksa demo katalog). Sahnede kaplama çözümlemesi için demo katalog
+ * her zaman dahildir (daha önce uygulanmış demo desenler kaybolmasın diye);
+ * katalog listesinde gösterim `useVisibleWallpapers` ile filtrelenir.
+ */
 export function useAllWallpapers(): WallpaperDef[] {
   const catalog = useCatalog((s) => s.wallpapers);
+  const library = useLibrary((s) => s.wallpapers);
   const custom = useEditor((s) => s.project?.customWallpapers);
-  return custom && custom.length ? [...custom, ...catalog] : catalog;
+  return useMemo(() => [...(custom ?? []), ...library, ...catalog], [custom, library, catalog]);
+}
+
+/** Katalog panelinde listelenecek desenler. */
+export function useVisibleWallpapers(): WallpaperDef[] {
+  const catalog = useCatalog((s) => s.wallpapers);
+  const library = useLibrary((s) => s.wallpapers);
+  const showDemo = useLibrary((s) => s.showDemo);
+  const custom = useEditor((s) => s.project?.customWallpapers);
+  return useMemo(() => [...(custom ?? []), ...library, ...(showDemo ? catalog : [])], [custom, library, catalog, showDemo]);
 }
 
 export function findWallpaper(id: string, all: WallpaperDef[]): WallpaperDef | undefined {

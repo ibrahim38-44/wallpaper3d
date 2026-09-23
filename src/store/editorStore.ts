@@ -8,11 +8,13 @@ import {
   roomCenter,
   snapToWalls,
 } from '../core/geometry';
-import { createProject, resizeRoom, uid, type NewRoomInput } from '../core/project';
+import { adjacentOrigin, type Side } from '../core/house';
+import { activeRoom, createProject, createRoomDoc, resizeRoomDoc, uid, type NewRoomInput } from '../core/project';
 import type {
   FloorItem,
   OpeningItem,
   Project,
+  RoomDoc,
   SceneItem,
   Selection,
   Vec2,
@@ -20,8 +22,9 @@ import type {
   WallpaperDef,
 } from '../core/types';
 
-export type ViewMode = 'perspective' | 'top' | 'wall';
-export type SidePanel = 'library' | 'wallpaper' | 'ai' | 'room';
+export type ViewMode = 'perspective' | 'house' | 'top' | 'wall';
+export type SidePanel = 'library' | 'wallpaper' | 'rooms' | 'ai' | 'room';
+export type RoomDialogMode = null | 'new' | 'edit' | 'add';
 
 const HISTORY_LIMIT = 100;
 
@@ -41,14 +44,22 @@ export interface EditorState {
   /** mobilde alt çekmece açık mı */
   sheetOpen: boolean;
   /** oda ölçü penceresi: null = kapalı */
-  roomDialog: null | 'new' | 'edit';
+  roomDialog: RoomDialogMode;
   toast: { id: number; text: string } | null;
 
-  // ---- proje
-  newProject(input: NewRoomInput): void;
+  // ---- proje / ev
+  newProject(input: NewRoomInput & { projectName?: string }): void;
+  /** aktif odanın ölçülerini değiştirir */
   resizeRoom(input: NewRoomInput): void;
   loadProject(p: Project): void;
   renameProject(name: string): void;
+  /** aktif odanın yanına yeni oda ekler */
+  addRoom(input: NewRoomInput, side: Side, align?: 'start' | 'center' | 'end'): void;
+  setActiveRoom(id: string): void;
+  renameRoom(id: string, name: string): void;
+  moveRoom(id: string, origin: Vec2, transient?: boolean): void;
+  removeRoom(id: string): void;
+  duplicateRoom(id: string, side: Side): void;
 
   // ---- geçmiş
   /** Değişiklik öncesi anlık görüntü alır (sürükleme başlangıcı vb.) */
@@ -82,7 +93,7 @@ export interface EditorState {
   setView(v: ViewMode): void;
   setPanel(p: SidePanel, openSheet?: boolean): void;
   setSheetOpen(v: boolean): void;
-  openRoomDialog(mode: null | 'new' | 'edit'): void;
+  openRoomDialog(mode: RoomDialogMode): void;
   toggleSnap(): void;
   toggleMeasurements(): void;
   notify(text: string): void;
@@ -108,18 +119,31 @@ export const useEditor = create<EditorState>()((set, get) => {
   };
   const apply = (transient: boolean | undefined, m: (p: Project) => Project) => (transient ? transientSet(m) : commit(m));
 
-  const mapItem = (p: Project, id: string, fn: (it: SceneItem) => SceneItem): Project => ({
+  /** Aktif oda üzerinde değişiklik (oda-yerel koordinatlarda). */
+  const onRoom = (m: (r: RoomDoc) => RoomDoc) => (p: Project): Project => {
+    const activeId = activeRoom(p).id;
+    return { ...p, rooms: p.rooms.map((r) => (r.id === activeId ? m(r) : r)) };
+  };
+  const commitRoom = (m: (r: RoomDoc) => RoomDoc) => commit(onRoom(m));
+  const applyRoom = (transient: boolean | undefined, m: (r: RoomDoc) => RoomDoc) => apply(transient, onRoom(m));
+
+  const mapItem = (p: RoomDoc, id: string, fn: (it: SceneItem) => SceneItem): RoomDoc => ({
     ...p,
     items: p.items.map((it) => (it.id === id ? fn(it) : it)),
   });
 
-  const placeFloor = (p: Project, item: FloorItem, pos: Vec2): Vec2 => {
+  const placeFloor = (p: RoomDoc, item: FloorItem, pos: Vec2): Vec2 => {
     let next = clampToRoom(pos, item.size, item.rotation, p.room);
     if (get().snapToWall) {
       next = snapToWalls(next, item.size, item.rotation, computeWalls(p.room)).position;
       next = clampToRoom(next, item.size, item.rotation, p.room);
     }
     return next;
+  };
+
+  const current = (): RoomDoc | null => {
+    const p = get().project;
+    return p ? activeRoom(p) : null;
   };
 
   return {
@@ -149,8 +173,8 @@ export const useEditor = create<EditorState>()((set, get) => {
       });
     },
     resizeRoom(input) {
-      commit((p) => {
-        const resized = resizeRoom(p, input);
+      commitRoom((doc) => {
+        const resized = resizeRoomDoc(doc, input);
         const walls = computeWalls(resized.room);
         // Mevcut nesneleri yeni sınırlara uydur
         const items = resized.items
@@ -168,7 +192,53 @@ export const useEditor = create<EditorState>()((set, get) => {
       set({ project: p, selection: null, past: [], future: [], viewNonce: get().viewNonce + 1 });
     },
     renameProject(name) {
-      commit((p) => ({ ...p, name, room: { ...p.room, name } }));
+      commit((p) => ({ ...p, name }));
+    },
+    addRoom(input, side, align = 'start') {
+      const p = get().project;
+      if (!p) return;
+      const ref = activeRoom(p);
+      const origin = adjacentOrigin(ref, { width: input.width, length: input.length }, side, align);
+      const doc = createRoomDoc({ ...input, wallThickness: ref.room.wallThickness }, origin);
+      commit((pp) => ({ ...pp, rooms: [...pp.rooms, doc], activeRoomId: doc.id }));
+      set({ selection: null, roomDialog: null, view: 'house', viewNonce: get().viewNonce + 1 });
+    },
+    setActiveRoom(id) {
+      const p = get().project;
+      if (!p || p.activeRoomId === id || !p.rooms.some((r) => r.id === id)) return;
+      // Oda değiştirmek geri alma geçmişine yazılmaz
+      set({ project: { ...p, activeRoomId: id }, selection: null });
+    },
+    renameRoom(id, name) {
+      commit((p) => ({ ...p, rooms: p.rooms.map((r) => (r.id === id ? { ...r, room: { ...r.room, name } } : r)) }));
+    },
+    moveRoom(id, origin, transient) {
+      apply(transient, (p) => ({ ...p, rooms: p.rooms.map((r) => (r.id === id ? { ...r, origin: { ...origin } } : r)) }));
+    },
+    removeRoom(id) {
+      const p = get().project;
+      if (!p || p.rooms.length < 2) return;
+      commit((pp) => {
+        const rooms = pp.rooms.filter((r) => r.id !== id);
+        return { ...pp, rooms, activeRoomId: pp.activeRoomId === id ? rooms[0].id : pp.activeRoomId };
+      });
+      set({ selection: null });
+    },
+    duplicateRoom(id, side) {
+      const p = get().project;
+      const src = p?.rooms.find((r) => r.id === id);
+      if (!p || !src) return;
+      const b = computeWalls(src.room);
+      const size = { width: b[0].length, length: b[1]?.length ?? b[0].length };
+      const copy: RoomDoc = {
+        ...structuredClone(src),
+        id: uid('room'),
+        origin: adjacentOrigin(src, size, side),
+        room: { ...src.room, name: `${src.room.name} (kopya)` },
+      };
+      copy.items = copy.items.map((it) => ({ ...it, id: uid('it') }));
+      commit((pp) => ({ ...pp, rooms: [...pp.rooms, copy], activeRoomId: copy.id }));
+      set({ selection: null, view: 'house', viewNonce: get().viewNonce + 1 });
     },
 
     checkpoint() {
@@ -191,7 +261,7 @@ export const useEditor = create<EditorState>()((set, get) => {
 
     addItem(catalogId, at) {
       const def = getFurniture(catalogId);
-      const project = get().project;
+      const project = current();
       if (!def || !project) return null;
       const walls = computeWalls(project.room);
       const id = uid('it');
@@ -209,7 +279,7 @@ export const useEditor = create<EditorState>()((set, get) => {
           offset = walls[wallIndex].length / 2;
         }
         const size = { ...def.defaultSize };
-        const base: OpeningItem = { id, kind: 'opening', catalogId, wallIndex, offset, elevation: def.defaultElevation ?? 0, size, color: def.colors[0] };
+        const base: OpeningItem = { id, kind: 'opening', catalogId, wallIndex, offset, elevation: def.defaultElevation ?? 0, size, color: def.colors[0], color2: def.colors2?.[0] };
         item = { ...base, ...clampOpening(base, walls[wallIndex], project.room.height) };
       } else {
         const center = roomCenter(project.room);
@@ -223,6 +293,7 @@ export const useEditor = create<EditorState>()((set, get) => {
           rotation: 0,
           size: { ...def.defaultSize },
           color: def.colors[0],
+          color2: def.colors2?.[0],
         };
         if (def.placement === 'wall' && !(at && !('wallIndex' in at))) {
           // Duvara monte: arka duvara yasla
@@ -235,13 +306,13 @@ export const useEditor = create<EditorState>()((set, get) => {
         base.position = placeFloor(project, base, base.position);
         item = base;
       }
-      commit((p) => ({ ...p, items: [...p.items, item] }));
+      commitRoom((p) => ({ ...p, items: [...p.items, item] }));
       set({ selection: { type: 'item', id } });
       return id;
     },
     addItems(items, opts) {
       if (!items.length) return;
-      commit((p) => {
+      commitRoom((p) => {
         const kept = p.items.filter(
           (i) => !(opts?.replaceFurniture && i.kind === 'floor') && !(opts?.replaceOpenings && i.kind === 'opening'),
         );
@@ -249,7 +320,7 @@ export const useEditor = create<EditorState>()((set, get) => {
       });
     },
     updateItem(id, patch, transient) {
-      apply(transient, (p) =>
+      applyRoom(transient, (p) =>
         mapItem(p, id, (it) => {
           const def = getFurniture(it.catalogId);
           const merged = { ...it, ...patch } as SceneItem;
@@ -267,12 +338,12 @@ export const useEditor = create<EditorState>()((set, get) => {
       );
     },
     moveFloorItem(id, pos, transient) {
-      apply(transient, (p) =>
+      applyRoom(transient, (p) =>
         mapItem(p, id, (it) => (it.kind === 'floor' && !it.locked ? { ...it, position: placeFloor(p, it, pos) } : it)),
       );
     },
     moveOpening(id, wallIndex, offset, transient) {
-      apply(transient, (p) =>
+      applyRoom(transient, (p) =>
         mapItem(p, id, (it) => {
           if (it.kind !== 'opening' || it.locked) return it;
           const wall = computeWalls(p.room)[wallIndex];
@@ -282,7 +353,7 @@ export const useEditor = create<EditorState>()((set, get) => {
       );
     },
     rotateItem(id, deltaDeg) {
-      commit((p) =>
+      commitRoom((p) =>
         mapItem(p, id, (it) => {
           if (it.kind !== 'floor') return { ...it, flip: !it.flip };
           const rotation = normalizeAngle(it.rotation + deltaDeg);
@@ -292,12 +363,12 @@ export const useEditor = create<EditorState>()((set, get) => {
       );
     },
     removeItem(id) {
-      commit((p) => ({ ...p, items: p.items.filter((i) => i.id !== id) }));
+      commitRoom((p) => ({ ...p, items: p.items.filter((i) => i.id !== id) }));
       const sel = get().selection;
       if (sel?.type === 'item' && sel.id === id) set({ selection: null });
     },
     duplicateItem(id) {
-      const p = get().project;
+      const p = current();
       const src = p?.items.find((i) => i.id === id);
       if (!p || !src) return;
       const nid = uid('it');
@@ -309,27 +380,27 @@ export const useEditor = create<EditorState>()((set, get) => {
         const wall = computeWalls(p.room)[src.wallIndex];
         copy = { ...src, id: nid, ...clampOpening({ ...src, offset: src.offset + src.size.w + 20 }, wall, p.room.height) };
       }
-      commit((pp) => ({ ...pp, items: [...pp.items, copy] }));
+      commitRoom((pp) => ({ ...pp, items: [...pp.items, copy] }));
       set({ selection: { type: 'item', id: nid } });
     },
 
     setWallpaper(target, assignment) {
-      commit((p) => ({
+      commitRoom((p) => ({
         ...p,
         walls: p.walls.map((w, i) => (target === 'all' || target === i ? { ...w, wallpaper: assignment ? { ...assignment } : null } : w)),
       }));
     },
     setWallpaperOffset(wallIndex, offsetU, offsetV, transient) {
-      apply(transient, (p) => ({
+      applyRoom(transient, (p) => ({
         ...p,
         walls: p.walls.map((w, i) => (i === wallIndex && w.wallpaper ? { ...w, wallpaper: { ...w.wallpaper, offsetU, offsetV } } : w)),
       }));
     },
     setWallPaint(target, color) {
-      commit((p) => ({ ...p, walls: p.walls.map((w, i) => (target === 'all' || target === i ? { ...w, paintColor: color } : w)) }));
+      commitRoom((p) => ({ ...p, walls: p.walls.map((w, i) => (target === 'all' || target === i ? { ...w, paintColor: color } : w)) }));
     },
     setFloorMaterial(id) {
-      commit((p) => ({ ...p, floor: { materialId: id } }));
+      commitRoom((p) => ({ ...p, floor: { materialId: id } }));
     },
     addCustomWallpaper(def) {
       commit((p) => ({ ...p, customWallpapers: [...p.customWallpapers.filter((c) => c.id !== def.id), def] }));
@@ -338,7 +409,7 @@ export const useEditor = create<EditorState>()((set, get) => {
       commit((p) => ({
         ...p,
         customWallpapers: p.customWallpapers.filter((c) => c.id !== id),
-        walls: p.walls.map((w) => (w.wallpaper?.wallpaperId === id ? { ...w, wallpaper: null } : w)),
+        rooms: p.rooms.map((r) => ({ ...r, walls: r.walls.map((w) => (w.wallpaper?.wallpaperId === id ? { ...w, wallpaper: null } : w)) })),
       }));
     },
 
@@ -373,12 +444,20 @@ export const useEditor = create<EditorState>()((set, get) => {
 });
 
 function keepSelection(sel: Selection, p: Project): Selection {
-  if (sel?.type === 'item' && !p.items.some((i) => i.id === sel.id)) return null;
-  if (sel?.type === 'wall' && sel.index >= p.walls.length) return null;
+  const r = activeRoom(p);
+  if (sel?.type === 'item' && !r.items.some((i) => i.id === sel.id)) return null;
+  if (sel?.type === 'wall' && sel.index >= r.walls.length) return null;
   return sel;
+}
+
+/** Aktif oda (türetilmiş, referansı sabit). */
+export function useRoom(): RoomDoc {
+  return useEditor((s) => activeRoom(s.project!));
 }
 
 /** Seçili nesne (türetilmiş). */
 export function useSelectedItem(): SceneItem | undefined {
-  return useEditor((s) => (s.selection?.type === 'item' ? s.project?.items.find((i) => i.id === (s.selection as { id: string }).id) : undefined));
+  return useEditor((s) =>
+    s.selection?.type === 'item' && s.project ? activeRoom(s.project).items.find((i) => i.id === (s.selection as { id: string }).id) : undefined,
+  );
 }

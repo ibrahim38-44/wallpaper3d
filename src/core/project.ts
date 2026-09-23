@@ -1,5 +1,5 @@
-import { rectangleCorners } from './geometry';
-import type { Project, RoomSpec, WallFinish } from './types';
+import { rectangleCorners, roomSize } from './geometry';
+import type { Project, RoomDoc, RoomSpec, WallFinish, WallpaperDef } from './types';
 
 export const DEFAULT_WALL_COLOR = '#ece8e1';
 
@@ -48,51 +48,122 @@ export function defaultWallFinishes(count: number): WallFinish[] {
   return Array.from({ length: count }, () => ({ paintColor: DEFAULT_WALL_COLOR, wallpaper: null }));
 }
 
-export function createProject(input: NewRoomInput): Project {
+export function createRoomDoc(input: NewRoomInput, origin = { x: 0, z: 0 }): RoomDoc {
   const room = createRoom(input);
-  const now = new Date().toISOString();
   return {
-    schemaVersion: 1,
-    id: uid('prj'),
-    name: room.name,
+    id: uid('room'),
+    origin,
     room,
     items: [],
     walls: defaultWallFinishes(room.corners.length),
     floor: { materialId: 'oak-parquet' },
+  };
+}
+
+export function createProject(input: NewRoomInput & { projectName?: string }): Project {
+  const first = createRoomDoc(input);
+  const now = new Date().toISOString();
+  return {
+    schemaVersion: 2,
+    id: uid('prj'),
+    name: input.projectName?.trim() || first.room.name,
+    rooms: [first],
+    activeRoomId: first.id,
     customWallpapers: [],
     createdAt: now,
     updatedAt: now,
   };
 }
 
-/** Ölçüleri değişen odada mevcut içerik korunur; duvar sayısı değişirse kaplamalar uyarlanır. */
-export function resizeRoom(project: Project, input: NewRoomInput): Project {
-  const room = { ...createRoom({ ...input, name: input.name ?? project.room.name }), wallThickness: project.room.wallThickness };
-  const walls =
-    project.walls.length === room.corners.length ? project.walls : defaultWallFinishes(room.corners.length);
-  return { ...project, room, walls, name: room.name };
+/** Aktif oda (her zaman bir oda döner). */
+export function activeRoom(p: Project): RoomDoc {
+  return p.rooms.find((r) => r.id === p.activeRoomId) ?? p.rooms[0];
 }
 
-/** JSON içeriğini doğrular ve (gelecekteki şema sürümleri için) taşır. */
+/** Ölçüleri değişen odada mevcut içerik korunur; duvar sayısı değişirse kaplamalar uyarlanır. */
+export function resizeRoomDoc(doc: RoomDoc, input: NewRoomInput): RoomDoc {
+  const room = { ...createRoom({ ...input, name: input.name ?? doc.room.name }), wallThickness: doc.room.wallThickness };
+  const walls = doc.walls.length === room.corners.length ? doc.walls : defaultWallFinishes(room.corners.length);
+  return { ...doc, room, walls };
+}
+
+export function roomDimensions(doc: RoomDoc) {
+  return { ...roomSize(doc.room), height: doc.room.height };
+}
+
+type V1Project = {
+  schemaVersion: 1;
+  id?: string;
+  name?: string;
+  room: RoomSpec;
+  items: RoomDoc['items'];
+  walls?: WallFinish[];
+  floor?: RoomDoc['floor'];
+  customWallpapers?: WallpaperDef[];
+  createdAt?: string;
+  updatedAt?: string;
+};
+
+function validRoom(room: RoomSpec | undefined): room is RoomSpec {
+  return !!room && Array.isArray(room.corners) && room.corners.length >= 3 && room.height > 0;
+}
+
+/** JSON içeriğini doğrular ve eski şema sürümlerini taşır (v1: tek oda → v2: ev). */
 export function parseProject(json: unknown): Project {
   if (!json || typeof json !== 'object') throw new Error('Geçersiz proje dosyası.');
-  const p = json as Partial<Project> & { schemaVersion?: number };
-  if (p.schemaVersion !== 1) throw new Error(`Desteklenmeyen proje sürümü: ${String(p.schemaVersion)}`);
-  if (!p.room || !Array.isArray(p.room.corners) || p.room.corners.length < 3) throw new Error('Oda bilgisi eksik.');
-  if (!Array.isArray(p.items)) throw new Error('Nesne listesi eksik.');
-  const wallCount = p.room.corners.length;
-  const walls = Array.isArray(p.walls) && p.walls.length === wallCount ? p.walls : defaultWallFinishes(wallCount);
+  const raw = json as { schemaVersion?: number };
+  const now = new Date().toISOString();
+
+  if (raw.schemaVersion === 1) {
+    const p = json as V1Project;
+    if (!validRoom(p.room)) throw new Error('Oda bilgisi eksik.');
+    if (!Array.isArray(p.items)) throw new Error('Nesne listesi eksik.');
+    const n = p.room.corners.length;
+    const doc: RoomDoc = {
+      id: uid('room'),
+      origin: { x: 0, z: 0 },
+      room: p.room,
+      items: p.items,
+      walls: Array.isArray(p.walls) && p.walls.length === n ? p.walls : defaultWallFinishes(n),
+      floor: p.floor ?? { materialId: 'oak-parquet' },
+    };
+    return {
+      schemaVersion: 2,
+      id: p.id ?? uid('prj'),
+      name: p.name ?? p.room.name ?? 'Evim',
+      rooms: [doc],
+      activeRoomId: doc.id,
+      customWallpapers: p.customWallpapers ?? [],
+      createdAt: p.createdAt ?? now,
+      updatedAt: p.updatedAt ?? now,
+    };
+  }
+
+  if (raw.schemaVersion !== 2) throw new Error(`Desteklenmeyen proje sürümü: ${String(raw.schemaVersion)}`);
+  const p = json as Partial<Project>;
+  if (!Array.isArray(p.rooms) || p.rooms.length === 0) throw new Error('Projede oda yok.');
+  const rooms: RoomDoc[] = p.rooms.map((r) => {
+    if (!validRoom(r.room)) throw new Error('Oda bilgisi eksik.');
+    const n = r.room.corners.length;
+    return {
+      id: r.id ?? uid('room'),
+      origin: r.origin ?? { x: 0, z: 0 },
+      room: r.room,
+      items: Array.isArray(r.items) ? r.items : [],
+      walls: Array.isArray(r.walls) && r.walls.length === n ? r.walls : defaultWallFinishes(n),
+      floor: r.floor ?? { materialId: 'oak-parquet' },
+    };
+  });
+  const activeRoomId = rooms.some((r) => r.id === p.activeRoomId) ? p.activeRoomId! : rooms[0].id;
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     id: p.id ?? uid('prj'),
-    name: p.name ?? p.room.name ?? 'Odam',
-    room: p.room,
-    items: p.items,
-    walls,
-    floor: p.floor ?? { materialId: 'oak-parquet' },
+    name: p.name ?? 'Evim',
+    rooms,
+    activeRoomId,
     customWallpapers: p.customWallpapers ?? [],
-    createdAt: p.createdAt ?? new Date().toISOString(),
-    updatedAt: p.updatedAt ?? new Date().toISOString(),
+    createdAt: p.createdAt ?? now,
+    updatedAt: p.updatedAt ?? now,
   };
 }
 

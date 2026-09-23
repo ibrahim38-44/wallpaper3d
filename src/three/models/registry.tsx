@@ -8,6 +8,7 @@ import { Basin, Bathtub, Toilet } from './bath';
 import { FloorLamp, Plant, Rug } from './decor';
 import { Fridge, KitchenBase, KitchenSink, KitchenWall, Stove } from './kitchen';
 import { Armchair, Bookshelf, Chair, CoffeeTable, Desk, Sofa, SofaL, Table, Tv, TvUnit } from './living';
+import { BarStool, OfficeChair, Pouf, UpholsteredChair } from './seating';
 import { BalconyDoor, Door, Window } from './openings';
 import type { ModelProps, OpeningModelProps } from './primitives';
 
@@ -27,6 +28,10 @@ export const PROCEDURAL_MODELS: Record<string, ComponentType<ModelProps>> = {
   table: Table,
   desk: Desk,
   chair: Chair,
+  chairUph: UpholsteredChair,
+  officeChair: OfficeChair,
+  barStool: BarStool,
+  pouf: Pouf,
   kitchenBase: KitchenBase,
   kitchenSink: KitchenSink,
   kitchenWall: KitchenWall,
@@ -99,9 +104,9 @@ class ModelErrorBoundary extends Component<{ fallback: ReactNode; children: Reac
   }
 }
 
-export function FurnitureModel({ def, size, color }: { def: FurnitureDef; size: Size3; color: string }) {
+export function FurnitureModel({ def, size, color, color2 }: { def: FurnitureDef; size: Size3; color: string; color2?: string }) {
   const Procedural = PROCEDURAL_MODELS[def.model] ?? FallbackBox;
-  const procedural = <Procedural size={size} color={color} />;
+  const procedural = <Procedural size={size} color={color} color2={color2} />;
   if (!def.modelUrl) return procedural;
   return (
     <ModelErrorBoundary fallback={procedural}>
@@ -112,8 +117,8 @@ export function FurnitureModel({ def, size, color }: { def: FurnitureDef; size: 
   );
 }
 
-export function OpeningModel({ def, size, color, wallThickness, flip }: { def: FurnitureDef; size: Size3; color: string; wallThickness: number; flip?: boolean }) {
+export function OpeningModel({ def, size, color, color2, wallThickness, flip }: { def: FurnitureDef; size: Size3; color: string; color2?: string; wallThickness: number; flip?: boolean }) {
   const M = OPENING_MODELS[def.model];
   if (!M) return null;
-  return <M size={size} color={color} wallThickness={wallThickness} flip={flip} />;
+  return <M size={size} color={color} color2={color2} wallThickness={wallThickness} flip={flip} />;
 }

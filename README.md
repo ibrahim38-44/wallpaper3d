@@ -4,8 +4,11 @@ Web tabanlı 3D oda tasarımı ve **gerçek ölçekli duvar kağıdı önizleme*
 Masaüstü ve mobilde çalışır.
 
 ## Özellikler
+- **Çok odalı ev (v0.2):** ilk odanın sağına/soluna/önüne/arkasına yeni odalar eklenir; ortak duvar paylaşılır, aradaki kapı iki odada da açıklık oluşturur. Her oda ayrı düzenlenir (sahnede odaya dokunmak onu aktif yapar); "Ev" görünümü tüm evi gösterir.
+- **Firma katalogları (v0.2):** her firmanın duvar kağıtları görsel + CSV/ZIP ile yüklenir, panelde yalnızca bu ürünler listelenir; fiyat/rulo bilgisi teklife yansır. Ayrıntı: [docs/KATALOG.md](docs/KATALOG.md)
+- **Parça bazlı renk (v0.2):** her eşyada ana + ikincil malzeme rengi (ör. kanepe kumaşı + ayak, mutfak kapağı + tezgâh), geniş palet ve serbest renk seçici.
 - **Oda editörü:** genişlik/uzunluk/yükseklik (cm) → gerçek ölçekli 3D oda; ölçü düzenleme, zemin malzemesi, duvar boyası.
-- **Mobilya kütüphanesi (29 tip):** yatak, gardırop, komodin, şifonyer, kanepe, L koltuk, berjer, sehpa, TV ünitesi, TV, kitaplık, yemek/çalışma masası, sandalye, mutfak alt/üst dolap, evye, ocak, buzdolabı, lavabo, klozet, küvet, halı, bitki, lambader, kapı, pencere, balkon kapısı.
+- **Mobilya kütüphanesi (33 tip):** ahşap/döşemeli/ofis sandalyesi, bar taburesi, puf, yatak, gardırop, komodin, şifonyer, kanepe, L koltuk, berjer, sehpa, TV ünitesi, TV, kitaplık, yemek/çalışma masası, sandalye, mutfak alt/üst dolap, evye, ocak, buzdolabı, lavabo, klozet, küvet, halı, bitki, lambader, kapı, pencere, balkon kapısı.
 - **Düzenleme:** sürükle-bırak (zeminde), döndürme halkası (90°'ye mıknatıslı), ölçü kaydırıcıları, renk, çoğalt, kilitle, sil, duvara yapıştırma, duvarlara mesafe ölçüleri, geri al/yinele, klavye kısayolları.
 - **Kapı/pencere:** duvara gömülür, duvar boyunca ve duvarlar arasında sürüklenir; duvarda gerçek delik açılır.
 - **Duvar kağıdı:** duvara dokun → katalogdan seç; desen cm cinsinden gerçek ölçekte, tavandan hizalı; yatay/dikey hizalama; kaldır/değiştir; tüm duvarlara uygula; kendi deseninizi yükleyin; **rulo hesabı ve teklif özeti**.

@@ -2,11 +2,11 @@ import type { ReactElement } from 'react';
 import { mat, shade } from '../materials';
 import { B, Cyl, RB, divisions, legPositions, type ModelProps } from './primitives';
 
-export function Bed({ size, color }: ModelProps) {
+export function Bed({ size, color, color2 = '#ebe5da' }: ModelProps) {
   const { w, d, h } = size;
   const up = mat('fabric', color);
   const sheet = mat('fabric', '#f5f2ed');
-  const duvet = mat('fabric', '#ebe5da');
+  const duvet = mat('fabric', color2);
   const throwM = mat('fabric', shade(color, -0.12));
   const leg = mat('wood', '#5a3e2b');
   const legH = 8;
@@ -37,11 +37,11 @@ export function Bed({ size, color }: ModelProps) {
   );
 }
 
-export function Wardrobe({ size, color }: ModelProps) {
+export function Wardrobe({ size, color, color2 = '#b8b2a7' }: ModelProps) {
   const { w, d, h } = size;
   const body = mat('wood', color);
   const plinth = mat('matte', shade(color, -0.3));
-  const handle = mat('metal', '#b8b2a7');
+  const handle = mat('metal', color2);
   const gap = mat('matte', '#1d1d1d');
   const pl = 8;
   const n = divisions(w, 50);
@@ -87,10 +87,10 @@ function Drawers({ w, d, y0, y1, rows, cols, color }: { w: number; d: number; y0
   return <>{out}</>;
 }
 
-export function Nightstand({ size, color }: ModelProps) {
+export function Nightstand({ size, color, color2 = '#2c2c2c' }: ModelProps) {
   const { w, d, h } = size;
   const body = mat('wood', color);
-  const leg = mat('metal', '#2c2c2c');
+  const leg = mat('metal', color2);
   const legH = 12;
   return (
     <group>
@@ -103,10 +103,10 @@ export function Nightstand({ size, color }: ModelProps) {
   );
 }
 
-export function Dresser({ size, color }: ModelProps) {
+export function Dresser({ size, color, color2 }: ModelProps) {
   const { w, d, h } = size;
   const body = mat('wood', color);
-  const leg = mat('wood', shade(color, -0.2));
+  const leg = mat('wood', color2 ?? shade(color, -0.2));
   const legH = 10;
   return (
     <group>

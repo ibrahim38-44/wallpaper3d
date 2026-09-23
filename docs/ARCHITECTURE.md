@@ -41,14 +41,27 @@ ai/  ─► core/, catalog/        server/ ◄── HTTP ── ai/provider.ts
 
 ## Veri modeli (özet)
 ```ts
-Project { schemaVersion: 1, room: RoomSpec, items: (FloorItem | OpeningItem)[], walls: WallFinish[], floor, customWallpapers }
+Project { schemaVersion: 2, rooms: RoomDoc[], activeRoomId, customWallpapers }
+RoomDoc { id, origin{x,z} /* ev planında konum */, room: RoomSpec, items, walls: WallFinish[], floor }   // v1 dosyaları otomatik taşınır
 RoomSpec { corners: Vec2[] /* cm, saat yönünde */, height, wallThickness }
-FloorItem { catalogId, position{x,z}, elevation, rotation°, size{w,d,h}, color, locked }
+FloorItem { catalogId, position{x,z} /* oda-yerel */, elevation, rotation°, size{w,d,h}, color, color2, locked }
 OpeningItem { catalogId, wallIndex, offset /* duvar boyunca merkez */, elevation, size, flip }
 WallFinish { paintColor, wallpaper: { wallpaperId, offsetU, offsetV } | null }
 WallpaperDef { tileWidthCm, tileHeightCm, rollWidthCm, rollLengthCm, patternRepeatCm, match, source: procedural|image, pricePerRoll }
 ```
 Oda köşe listesi çokgen olduğundan L-tipi odalar eklemek yalnızca UI (köşe düzenleme) gerektirir; geometri, duvar, zemin ve UV kodu genel çokgeni destekler.
+
+## Çok odalı ev
+- Her oda kendi yerel koordinatında tutulur; sahnede `origin` kadar ötelenmiş bir grup içinde çizilir (`RoomContext`).
+- Tüm düzenleme eylemleri **aktif oda** üzerinde çalışır (`editorStore` → `commitRoom`). Pasif bir odaya dokunmak önce onu aktif yapar.
+- Yan oda yerleşimi `core/house.ts → adjacentOrigin`: iki odanın duvar gövdeleri üst üste gelir (tek kalınlıkta ortak duvar).
+- `foreignHolesForWall`: sırt sırta duran komşu duvardaki kapı/pencere, bu duvarda da delik açar.
+
+## Firma katalog kütüphanesi
+- `catalog/library/db.ts` (IndexedDB: brands, products + görsel Blob), `importers.ts` (görsel/CSV/JSON/ZIP → ürün), `csv.ts` (Türkçe/İngilizce başlık eşleme), `zip.ts` (bağımlılıksız ZIP okuma/yazma).
+- `store/libraryStore.ts` ürünleri `WallpaperDef` olarak sunar (kaynak = object URL); sahne ve katalog paneli bunları demo katalogla aynı yoldan kullanır.
+- Proje dışa aktarılırken kullanılan firma desenleri dosyaya gömülür → proje başka cihazda da aynı görünür.
+- Sunucuya taşımak için yalnızca `catalogDb` arayüzünün bir REST uygulaması yazmak yeterli.
 
 ## AI analiz akışı
 1. Tarayıcı: fotoğraflar 1280 px JPEG'e küçültülür; videodan 6 eşit aralıklı kare çıkarılır.

@@ -1,6 +1,7 @@
 import { parseProject, serializeProject } from '../core/project';
 import type { Project } from '../core/types';
 import { useEditor } from './editorStore';
+import { useLibrary } from './libraryStore';
 
 const KEY = 'wallpaper3d.project.v1';
 
@@ -35,8 +36,35 @@ export function startAutosave(): () => void {
   });
 }
 
-export function downloadProject(project: Project) {
-  const blob = new Blob([serializeProject(project)], { type: 'application/json' });
+function blobToDataUrl(b: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(String(r.result));
+    r.onerror = () => reject(r.error);
+    r.readAsDataURL(b);
+  });
+}
+
+/**
+ * Projeyi dosyaya kaydeder. Kullanılan firma kataloğu desenleri (görselleriyle)
+ * dosyaya gömülür; böylece proje başka bir cihazda katalog olmadan da açılır.
+ */
+export async function downloadProject(project: Project) {
+  const used = new Set(project.rooms.flatMap((r) => r.walls.map((w) => w.wallpaper?.wallpaperId).filter((x): x is string => !!x)));
+  const embedded = [...project.customWallpapers];
+  for (const rec of useLibrary.getState().records) {
+    if (!used.has(rec.id) || embedded.some((e) => e.id === rec.id)) continue;
+    const brand = useLibrary.getState().brands.find((b) => b.id === rec.brandId);
+    embedded.push({
+      ...rec.def,
+      swatch: rec.def.swatch ?? '#cccccc',
+      brand: brand?.name,
+      brandId: rec.brandId,
+      collection: brand ? `${brand.name} · ${rec.def.collection}` : rec.def.collection,
+      source: { type: 'image', url: await blobToDataUrl(rec.image) },
+    });
+  }
+  const blob = new Blob([serializeProject({ ...project, customWallpapers: embedded })], { type: 'application/json' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
   a.download = `${slug(project.name)}.wallpaper3d.json`;
